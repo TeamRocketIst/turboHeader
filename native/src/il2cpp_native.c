@@ -964,8 +964,7 @@ static bool parse_dumpcs(const char *path, Offsets *o, char **err) {
     char *d = slurp(path, &n, I2C_MAX_OFFSETS_BYTES, &too_large);
     if (!d) {
         if (too_large)
-            str_printf(err, "offset input exceeds %zu byte limit: %s", I2C_MAX_OFFSETS_BYTES,
-                       path);
+            str_printf(err, "offset input exceeds %zu byte limit: %s", I2C_MAX_OFFSETS_BYTES, path);
         else
             str_printf(err, "cannot read offsets: %s", path);
         return false;
@@ -1290,8 +1289,7 @@ static bool j_skip(Json *j, unsigned depth) {
     }
     if (*j->p == '-' || (*j->p >= '0' && *j->p <= '9'))
         return j_skip_number(j);
-    return j_skip_literal(j, "true") || j_skip_literal(j, "false") ||
-           j_skip_literal(j, "null");
+    return j_skip_literal(j, "true") || j_skip_literal(j, "false") || j_skip_literal(j, "null");
 }
 static bool j_uint(Json *j, uint64_t *out) {
     j_ws(j);
@@ -1341,9 +1339,9 @@ static bool parse_field_object(Json *j, StrMap *fields, bool static_offsets) {
             return false;
         }
         uint64_t v;
-        bool valid_offset = j_uint(j, &v) && v <= UINT32_MAX &&
-                            (v <= I2C_MAX_SIDECAR_OFFSET ||
-                             (static_offsets && (v & UINT32_C(0x80000000))));
+        bool valid_offset =
+            j_uint(j, &v) && v <= UINT32_MAX &&
+            (v <= I2C_MAX_SIDECAR_OFFSET || (static_offsets && (v & UINT32_C(0x80000000))));
         if (!valid_offset || !map_put(fields, k, (uintptr_t)v, false)) {
             free(k);
             return false;
@@ -1497,8 +1495,8 @@ static bool parse_json_offsets(const char *path, Offsets *o, char **err) {
     char *d = slurp(path, &n, I2C_MAX_OFFSETS_BYTES, &too_large);
     if (!d) {
         if (too_large)
-            str_printf(err, "type_offsets.json exceeds %zu byte limit: %s",
-                       I2C_MAX_OFFSETS_BYTES, path);
+            str_printf(err, "type_offsets.json exceeds %zu byte limit: %s", I2C_MAX_OFFSETS_BYTES,
+                       path);
         else
             str_printf(err, "cannot read offsets: %s", path);
         return false;
@@ -2703,11 +2701,9 @@ static bool sidecar_layout_budget_ok(const OutModel *model) {
     uint64_t total = 0;
     for (size_t i = 0; i < model->n; i++) {
         const OutStruct *structure = &model->v[i];
-        bool sidecar_influenced =
-            structure->length_evidence == LAYOUT_EVIDENCE_SIDECAR_COPIED;
+        bool sidecar_influenced = structure->length_evidence == LAYOUT_EVIDENCE_SIDECAR_COPIED;
         for (size_t field = 0; field < structure->n && !sidecar_influenced; field++)
-            sidecar_influenced =
-                structure->f[field].evidence == LAYOUT_EVIDENCE_SIDECAR_COPIED;
+            sidecar_influenced = structure->f[field].evidence == LAYOUT_EVIDENCE_SIDECAR_COPIED;
         if (!sidecar_influenced)
             continue;
         if (structure->length > I2C_MAX_SIDECAR_OFFSET)
