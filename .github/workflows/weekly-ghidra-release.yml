@@ -1,0 +1,370 @@
+name: Weekly Ghidra compatibility release
+
+on:
+  schedule:
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+    inputs:
+      ghidra_tag:
+        description: "Ghidra release tag; leave empty to use the latest stable release"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: weekly-ghidra-release
+  cancel-in-progress: false
+
+jobs:
+  discover:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    outputs:
+      build: ${{ steps.release.outputs.build }}
+      extension_version: ${{ steps.release.outputs.extension_version }}
+      ghidra_tag: ${{ steps.release.outputs.ghidra_tag }}
+      ghidra_digest: ${{ steps.release.outputs.ghidra_digest }}
+      ghidra_version: ${{ steps.release.outputs.ghidra_version }}
+      ghidra_url: ${{ steps.release.outputs.ghidra_url }}
+      release_tag: ${{ steps.release.outputs.release_tag }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Find the Ghidra release
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REQUESTED_TAG: ${{ inputs.ghidra_tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -n "${REQUESTED_TAG:-}" ]]; then
+            release_json="$(gh api "repos/NationalSecurityAgency/ghidra/releases/tags/$REQUESTED_TAG")"
+          else
+            release_json="$(gh api repos/NationalSecurityAgency/ghidra/releases/latest)"
+          fi
+
+          ghidra_tag="$(jq -r '.tag_name' <<<"$release_json")"
+          ghidra_asset_json="$(jq -c '
+            [.assets[] | select(
+              (.name | endswith(".zip")) and
+              (.name | contains("_PUBLIC_"))
+            )][0] // empty
+          ' <<<"$release_json")"
+          ghidra_url="$(jq -r '.browser_download_url // empty' <<<"$ghidra_asset_json")"
+          ghidra_digest="$(jq -r '.digest // empty' <<<"$ghidra_asset_json")"
+          [[ -n "$ghidra_url" ]] || {
+            echo "No public Ghidra distribution ZIP found for $ghidra_tag" >&2
+            exit 1
+          }
+
+          ghidra_asset="${ghidra_url##*/}"
+          ghidra_version="$(sed -E 's/^ghidra_([^_]+)_PUBLIC_.*/\1/' <<<"$ghidra_asset")"
+          [[ "$ghidra_version" != "$ghidra_asset" ]] || {
+            echo "Cannot determine Ghidra version from $ghidra_asset" >&2
+            exit 1
+          }
+          extension_version="$(sed -n 's/^version=//p' extension.properties)"
+          [[ -n "$extension_version" ]] || {
+            echo "extension.properties has no version" >&2
+            exit 1
+          }
+          release_tag="v${extension_version}-ghidra-${ghidra_version}"
+
+          if gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/$release_tag" >/dev/null 2>&1; then
+            build=false
+            echo "Release tag $release_tag already exists; nothing to publish."
+          else
+            build=true
+          fi
+
+          {
+            echo "build=$build"
+            echo "extension_version=$extension_version"
+            echo "ghidra_tag=$ghidra_tag"
+            echo "ghidra_digest=$ghidra_digest"
+            echo "ghidra_version=$ghidra_version"
+            echo "ghidra_url=$ghidra_url"
+            echo "release_tag=$release_tag"
+          } >>"$GITHUB_OUTPUT"
+
+  build-desktop:
+    needs: discover
+    if: needs.discover.outputs.build == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: win_x86_64
+            os: windows-2022
+            library: turboheader_il2cpp.dll
+            cli: il2cpp_native_cli.exe
+          - platform: mac_x86_64
+            os: macos-15-intel
+            library: libturboheader_il2cpp.dylib
+            cli: il2cpp_native_cli
+          - platform: mac_aarch64
+            os: macos-15
+            library: libturboheader_il2cpp.dylib
+            cli: il2cpp_native_cli
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: Download Ghidra
+        env:
+          GHIDRA_URL: ${{ needs.discover.outputs.ghidra_url }}
+          GHIDRA_DIGEST: ${{ needs.discover.outputs.ghidra_digest }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          download_dir="$RUNNER_TEMP/turboheader-ghidra"
+          rm -rf "$download_dir"
+          mkdir -p "$download_dir/ghidra-dist"
+          curl --fail --location --retry 3 --output "$download_dir/ghidra.zip" "$GHIDRA_URL"
+          python3 - <<'PY'
+          import hashlib
+          import os
+          from pathlib import Path
+          digest = os.environ.get("GHIDRA_DIGEST", "")
+          if digest:
+              algorithm, expected = digest.split(":", 1)
+              if algorithm != "sha256":
+                  raise SystemExit(f"unsupported Ghidra asset digest: {digest}")
+              actual = hashlib.sha256(Path(os.environ["RUNNER_TEMP"]).joinpath(
+                  "turboheader-ghidra", "ghidra.zip").read_bytes()).hexdigest()
+              if actual != expected:
+                  raise SystemExit("Ghidra distribution checksum mismatch")
+          PY
+          python3 -m zipfile -e "$download_dir/ghidra.zip" "$download_dir/ghidra-dist"
+          ghidra_dir="$(find "$download_dir/ghidra-dist" -mindepth 1 -maxdepth 1 -type d | head -n 1)"
+          [[ -f "$ghidra_dir/support/buildExtension.gradle" ]]
+          echo "GHIDRA_INSTALL_DIR=$(cd "$ghidra_dir" && pwd)" >>"$GITHUB_ENV"
+      - name: Build and verify native target
+        env:
+          PLATFORM: ${{ matrix.platform }}
+          LIBRARY: ${{ matrix.library }}
+          CLI: ${{ matrix.cli }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cmake -S native -B build/native \
+            -DTURBOHEADER_BUILD_JNI=ON \
+            -DTURBOHEADER_STRICT_WARNINGS=ON \
+            -DTURBOHEADER_WARNINGS_AS_ERRORS=ON \
+            -DCMAKE_BUILD_TYPE=Release
+          cmake --build build/native --config Release --parallel 2
+
+          library_path="$(find build/native -type f -name "$LIBRARY" | head -n 1)"
+          cli_path="$(find build/native -type f -name "$CLI" | head -n 1)"
+          [[ -n "$library_path" && -n "$cli_path" ]]
+          mkdir -p "native-verified/$PLATFORM" "extension-os/$PLATFORM"
+          cp "$library_path" "$cli_path" "native-verified/$PLATFORM/"
+          cp "$library_path" "extension-os/$PLATFORM/"
+
+          arch=x86_64
+          [[ "$PLATFORM" == mac_aarch64 ]] && arch=aarch64
+          python3 tools/verify_native.py \
+            --library "native-verified/$PLATFORM/$LIBRARY" \
+            --cli "native-verified/$PLATFORM/$CLI" \
+            --arch "$arch" \
+            --platform "$PLATFORM" \
+            --provenance "native-verified/$PLATFORM/provenance.json" \
+            --smoke-header tests/fixtures/sample.h \
+            --smoke-offsets tests/fixtures/type_offsets.json
+      - name: Package extension
+        env:
+          PLATFORM: ${{ matrix.platform }}
+          EXTENSION_VERSION: ${{ needs.discover.outputs.extension_version }}
+          GHIDRA_VERSION: ${{ needs.discover.outputs.ghidra_version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TURBOHEADER_PREBUILT_OS="$PWD/extension-os" \
+            ./gradlew --no-daemon clean buildExtension
+          extension_zip="$(find dist -maxdepth 1 -type f -name '*.zip' | head -n 1)"
+          [[ -n "$extension_zip" ]]
+          output="turboheader-${EXTENSION_VERSION}-ghidra-${GHIDRA_VERSION}-${PLATFORM}.zip"
+          cp "$extension_zip" "$output"
+          python3 - "$output" <<'PY'
+          import sys
+          import zipfile
+          from pathlib import Path
+          archive = Path(sys.argv[1])
+          if archive.stat().st_size > 25 * 1024 * 1024:
+              raise SystemExit(f"extension archive is unexpectedly large: {archive.stat().st_size} bytes")
+          with zipfile.ZipFile(archive) as bundle:
+              forbidden = [name for name in bundle.namelist()
+                           if "ghidra-dist" in name or name.endswith("ghidra.zip")]
+          if forbidden:
+              raise SystemExit(f"extension archive contains Ghidra distribution files: {forbidden[:5]}")
+          PY
+          echo "ASSET=$output" >>"$GITHUB_ENV"
+      - uses: actions/upload-artifact@v6
+        with:
+          name: extension-${{ matrix.platform }}
+          path: ${{ env.ASSET }}
+          if-no-files-found: error
+          retention-days: 7
+
+  build-linux:
+    needs: discover
+    if: needs.discover.outputs.build == 'true'
+    defaults:
+      run:
+        shell: bash
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux_x86_64
+            os: ubuntu-24.04
+            arch: x86_64
+          - platform: linux_aarch64
+            os: ubuntu-24.04-arm
+            arch: aarch64
+    runs-on: ${{ matrix.os }}
+    container: ubuntu:22.04
+    steps:
+      - name: Install build dependencies
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install --yes --no-install-recommends \
+            build-essential ca-certificates cmake curl findutils git ninja-build python3 unzip
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: Download Ghidra
+        env:
+          GHIDRA_URL: ${{ needs.discover.outputs.ghidra_url }}
+          GHIDRA_DIGEST: ${{ needs.discover.outputs.ghidra_digest }}
+        run: |
+          set -euo pipefail
+          download_dir="$RUNNER_TEMP/turboheader-ghidra"
+          rm -rf "$download_dir"
+          mkdir -p "$download_dir/ghidra-dist"
+          curl --fail --location --retry 3 --output "$download_dir/ghidra.zip" "$GHIDRA_URL"
+          python3 - <<'PY'
+          import hashlib
+          import os
+          from pathlib import Path
+          digest = os.environ.get("GHIDRA_DIGEST", "")
+          if digest:
+              algorithm, expected = digest.split(":", 1)
+              if algorithm != "sha256":
+                  raise SystemExit(f"unsupported Ghidra asset digest: {digest}")
+              actual = hashlib.sha256(Path(os.environ["RUNNER_TEMP"]).joinpath(
+                  "turboheader-ghidra", "ghidra.zip").read_bytes()).hexdigest()
+              if actual != expected:
+                  raise SystemExit("Ghidra distribution checksum mismatch")
+          PY
+          python3 -m zipfile -e "$download_dir/ghidra.zip" "$download_dir/ghidra-dist"
+          ghidra_dir="$(find "$download_dir/ghidra-dist" -mindepth 1 -maxdepth 1 -type d | head -n 1)"
+          [[ -f "$ghidra_dir/support/buildExtension.gradle" ]]
+          echo "GHIDRA_INSTALL_DIR=$(cd "$ghidra_dir" && pwd)" >>"$GITHUB_ENV"
+      - name: Build and verify native target
+        env:
+          PLATFORM: ${{ matrix.platform }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          set -euo pipefail
+          cmake -S native -B build/native -G Ninja \
+            -DTURBOHEADER_BUILD_JNI=ON \
+            -DTURBOHEADER_STRICT_WARNINGS=ON \
+            -DTURBOHEADER_WARNINGS_AS_ERRORS=ON \
+            -DCMAKE_BUILD_TYPE=Release
+          cmake --build build/native --parallel 2
+
+          mkdir -p "native-verified/$PLATFORM" "extension-os/$PLATFORM"
+          cp build/native/libturboheader_il2cpp.so build/native/il2cpp_native_cli \
+            "native-verified/$PLATFORM/"
+          cp build/native/libturboheader_il2cpp.so "extension-os/$PLATFORM/"
+          python3 tools/verify_native.py \
+            --library "native-verified/$PLATFORM/libturboheader_il2cpp.so" \
+            --cli "native-verified/$PLATFORM/il2cpp_native_cli" \
+            --arch "$ARCH" \
+            --platform "$PLATFORM" \
+            --glibc-max 2.35 \
+            --provenance "native-verified/$PLATFORM/provenance.json" \
+            --smoke-header tests/fixtures/sample.h \
+            --smoke-offsets tests/fixtures/type_offsets.json
+      - name: Package extension
+        env:
+          PLATFORM: ${{ matrix.platform }}
+          EXTENSION_VERSION: ${{ needs.discover.outputs.extension_version }}
+          GHIDRA_VERSION: ${{ needs.discover.outputs.ghidra_version }}
+        run: |
+          set -euo pipefail
+          TURBOHEADER_PREBUILT_OS="$PWD/extension-os" \
+            ./gradlew --no-daemon clean buildExtension
+          extension_zip="$(find dist -maxdepth 1 -type f -name '*.zip' | head -n 1)"
+          [[ -n "$extension_zip" ]]
+          output="turboheader-${EXTENSION_VERSION}-ghidra-${GHIDRA_VERSION}-${PLATFORM}.zip"
+          cp "$extension_zip" "$output"
+          python3 - "$output" <<'PY'
+          import sys
+          import zipfile
+          from pathlib import Path
+          archive = Path(sys.argv[1])
+          if archive.stat().st_size > 25 * 1024 * 1024:
+              raise SystemExit(f"extension archive is unexpectedly large: {archive.stat().st_size} bytes")
+          with zipfile.ZipFile(archive) as bundle:
+              forbidden = [name for name in bundle.namelist()
+                           if "ghidra-dist" in name or name.endswith("ghidra.zip")]
+          if forbidden:
+              raise SystemExit(f"extension archive contains Ghidra distribution files: {forbidden[:5]}")
+          PY
+          echo "ASSET=$output" >>"$GITHUB_ENV"
+      - uses: actions/upload-artifact@v6
+        with:
+          name: extension-${{ matrix.platform }}
+          path: ${{ env.ASSET }}
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    needs: [discover, build-desktop, build-linux]
+    if: needs.discover.outputs.build == 'true'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v6
+        with:
+          pattern: extension-*
+          path: release-assets
+          merge-multiple: true
+      - name: Create checksums
+        working-directory: release-assets
+        run: sha256sum *.zip > SHA256SUMS
+      - name: Publish compatibility release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ needs.discover.outputs.release_tag }}
+          EXTENSION_VERSION: ${{ needs.discover.outputs.extension_version }}
+          GHIDRA_VERSION: ${{ needs.discover.outputs.ghidra_version }}
+          GHIDRA_TAG: ${{ needs.discover.outputs.ghidra_tag }}
+        run: |
+          set -euo pipefail
+          notes="$(mktemp)"
+          cat >"$notes" <<EOF
+          Automated compatibility build for \`$GHIDRA_TAG\`.
+
+          Each archive contains the same TurboHeader extension and the native
+          library for the platform named in the filename. Verify downloads with
+          the attached \`SHA256SUMS\` file.
+          EOF
+          gh release create "$RELEASE_TAG" \
+            --target "$GITHUB_SHA" \
+            --title "TurboHeader $EXTENSION_VERSION for Ghidra $GHIDRA_VERSION" \
+            --generate-notes \
+            --notes-file "$notes" \
+            release-assets/*.zip release-assets/SHA256SUMS

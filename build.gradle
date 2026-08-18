@@ -1,0 +1,141 @@
+def ghidraInstallDir = System.getenv("GHIDRA_INSTALL_DIR") ?: project.findProperty("GHIDRA_INSTALL_DIR")
+if (!ghidraInstallDir) {
+    throw new GradleException("Set GHIDRA_INSTALL_DIR to a Ghidra 12.x installation")
+}
+
+apply from: new File(ghidraInstallDir, "support/buildExtension.gradle").getCanonicalPath()
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+def osName = System.getProperty("os.name", "").toLowerCase(Locale.ROOT)
+def archName = System.getProperty("os.arch", "").toLowerCase(Locale.ROOT)
+def platformOs = osName.contains("win") ? "win" :
+        (osName.contains("mac") || osName.contains("darwin") ? "mac" : "linux")
+def platformArch
+switch (archName) {
+    case "amd64":
+    case "x86_64":
+        platformArch = "x86_64"
+        break
+    case "aarch64":
+    case "arm64":
+        platformArch = "aarch64"
+        break
+    default:
+        throw new GradleException("Unsupported host architecture: ${archName}")
+}
+
+def nativePlatform = "${platformOs}_${platformArch}"
+def nativeLibraryName = System.mapLibraryName("turboheader_il2cpp")
+def nativeBuildDir = layout.buildDirectory.dir("native")
+def nativeStageDir = layout.buildDirectory.dir("native-extension/os")
+def prebuiltOsPath = project.findProperty("TURBOHEADER_PREBUILT_OS") ?:
+        System.getenv("TURBOHEADER_PREBUILT_OS")
+
+def nativeInputFiles = fileTree("native") {
+    include "CMakeLists.txt"
+    include "include/**"
+    include "src/**"
+}
+
+def nativePackagingTask
+if (prebuiltOsPath) {
+    def prebuiltOsDir = file(prebuiltOsPath)
+    nativePackagingTask = tasks.register("validatePrebuiltNative") {
+        inputs.dir(prebuiltOsDir)
+        doLast {
+            if (!prebuiltOsDir.isDirectory()) {
+                throw new GradleException("TURBOHEADER_PREBUILT_OS is not a directory: ${prebuiltOsDir}")
+            }
+            def libraries = fileTree(prebuiltOsDir) {
+                include "**/*.so", "**/*.dylib", "**/*.dll"
+            }.files
+            if (libraries.isEmpty()) {
+                throw new GradleException("TURBOHEADER_PREBUILT_OS contains no native libraries: ${prebuiltOsDir}")
+            }
+        }
+    }
+}
+else {
+    def configureNative = tasks.register("configureNative", Exec) {
+        inputs.files(nativeInputFiles)
+        outputs.file(nativeBuildDir.map { it.file("CMakeCache.txt") })
+        environment "JAVA_HOME", System.getenv("JAVA_HOME") ?: System.getProperty("java.home")
+        commandLine "cmake", "-S", file("native"), "-B", nativeBuildDir.get().asFile,
+                "-DTURBOHEADER_BUILD_JNI=ON", "-DCMAKE_BUILD_TYPE=Release"
+    }
+
+    def buildNative = tasks.register("buildNative", Exec) {
+        dependsOn configureNative
+        inputs.files(nativeInputFiles)
+        outputs.file(nativeBuildDir.map {
+            it.file(platformOs == "win" ? "Release/${nativeLibraryName}" : nativeLibraryName)
+        })
+        commandLine "cmake", "--build", nativeBuildDir.get().asFile,
+                "--config", "Release", "--parallel", "2"
+    }
+
+    nativePackagingTask = tasks.register("stageNative") {
+        dependsOn buildNative
+        inputs.files(nativeInputFiles)
+        outputs.dir(nativeStageDir)
+        doLast {
+            def candidates = fileTree(nativeBuildDir).matching {
+                include "**/${nativeLibraryName}"
+                exclude "**/CMakeFiles/**"
+            }.files
+            if (candidates.size() != 1) {
+                throw new GradleException(
+                        "Expected one ${nativeLibraryName} under ${nativeBuildDir.get().asFile}, found ${candidates}")
+            }
+            copy {
+                from candidates.first()
+                into nativeStageDir.get().dir(nativePlatform)
+            }
+        }
+    }
+}
+
+compileJava {
+    options.release = 21
+    options.encoding = "UTF-8"
+}
+
+def compileGhidraScripts = tasks.register("compileGhidraScripts", JavaCompile) {
+    dependsOn tasks.named("classes")
+    source fileTree("ghidra_scripts") {
+        include "**/*.java"
+    }
+    classpath = sourceSets.main.runtimeClasspath
+    destinationDirectory = layout.buildDirectory.dir("script-classes")
+    options.release = 21
+    options.encoding = "UTF-8"
+}
+
+tasks.named("buildExtension", Zip) {
+    dependsOn nativePackagingTask, compileGhidraScripts
+    if (prebuiltOsPath) {
+        from(file(prebuiltOsPath)) {
+            into "${project.name}/os"
+        }
+    }
+    else {
+        from(nativeStageDir) {
+            into "${project.name}/os"
+        }
+    }
+    exclude "**/native/build*/**"
+    exclude "**/tests/build*/**"
+    exclude "**/__pycache__/**"
+    exclude "**/*.pyc"
+    exclude ".benchmark/**"
+    exclude ".pytest_cache/**"
+    exclude "**/*.i2gf"
+    exclude "**/.DS_Store"
+    exclude "ghidra-dist/**"
+    exclude "ghidra.zip"
+}

@@ -1,0 +1,26 @@
+{
+  "version": 3,
+  "pointerSize": 8,
+  "types": {
+    "Base": {
+      "instanceSize": 20,
+      "fields": { "a": 16 }
+    },
+    "Vec2": {
+      "instanceSize": 8,
+      "fields": { "x": 0, "y": 4 }
+    },
+    "Derived": {
+      "instanceSize": 60,
+      "fields": {
+        "position": 24,
+        "values": 32,
+        "overlapA": 44,
+        "overlapB": 44,
+        "wide": 48,
+        "tail": 52,
+        "a": 56
+      }
+    }
+  }
+}

@@ -1,0 +1,12 @@
+.gradle/
+build/
+dist/
+inputs/
+stage/
+native/build/
+native/build-*/
+tests/build-*/
+__pycache__/
+*.py[cod]
+*.i2gf
+!tests/fixtures/*.json
