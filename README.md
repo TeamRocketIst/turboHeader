@@ -108,8 +108,9 @@ The repository contains only small synthetic fixtures. It does not include appli
 
 ## Acknowledgments
 
-This project was developed together with Antonio Freire (TSelecta). His work and contributions were essential to making it possible.
+This project was developed together with Antonio Freire ([TSelecta](https://github.com/TSelecta)). His work and contributions were essential to making it possible.
 
 ## License
 
 GNU LGPL v3. See `LICENSE` and `THIRD_PARTY_NOTICES.md`.
+
