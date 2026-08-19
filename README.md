@@ -37,7 +37,8 @@ Restart Ghidra after installing or replacing the extension.
 - `libil2cpp.so`: native Unity IL2CPP binary.
 - `il2cpp.h`: generated IL2CPP type declarations.
 - `dump.cs`: field-offset data commonly produced by Il2CppDumper.
-- `type_offsets.json`: precise field-offset data produced by `il2cpp_net`.
+- `type_offsets.json`: optional precise field-offset data. The default workflow that generates this file will be
+  released separately.
 - `script.json`: string literals, metadata slots, method addresses, names, signatures, and assembly information.
 - `DiffableCs`: Cpp2IL class tree used to select and organize exported methods.
 
@@ -59,11 +60,11 @@ $GHIDRA_INSTALL_DIR/support/analyzeHeadless \
   /path/to/il2cpp.h \
   /path/to/dump.cs \
   /path/to/script.json \
-  allow-inferred
+  require-external-offsets
 ```
 
-This example uses the files produced by Il2CppDumper. If you use `il2cpp_net`, replace `dump.cs` with
-`type_offsets.json` and use `require-external-offsets` for stricter field layouts.
+This example uses `il2cpp.h`, `dump.cs`, and `script.json` produced by Il2CppDumper. The
+`require-external-offsets` policy stops the import if the field offsets cannot be loaded.
 
 For header-only import, use:
 
@@ -86,14 +87,11 @@ $GHIDRA_INSTALL_DIR/support/analyzeHeadless \
   /path/to/DiffableCs \
   /path/to/out \
   blacklist \
-  /path/to/framework_ignore.txt \
   --decompile-jobs 8
 ```
 
 The selection mode can be `whitelist`, `blacklist`, or `all`.
-
-On AArch64, non-returning helpers are detected automatically. A matching seed file can also be supplied with
-`--noreturn-seeds /path/to/noreturn-seeds.txt`.
+Without a `framework_ignore.txt` argument, `blacklist` uses the built-in framework rules.
 
 Eight decompiler workers were the fastest tested setting on the 12-core development machine. Values up to 12 are
 supported for experimentation.
@@ -113,4 +111,3 @@ This project was developed together with Antonio Freire ([TSelecta](https://gith
 ## License
 
 GNU LGPL v3. See `LICENSE` and `THIRD_PARTY_NOTICES.md`.
-
