@@ -2085,10 +2085,12 @@ static bool value_layout(OutModel *m, const char *name, uint32_t *size, uint32_t
     uint32_t compound_align = 1;
     for (size_t i = 0; i < flat.n; i++) {
         char *nt = normalize_type(flat.v[i]->ctype);
-        uint32_t member_size, member_align;
+        uint32_t member_size = 0, member_align = 0;
         bool member_ok = nt && layout_type(m, nt, &member_size, &member_align, depth + 1);
         r = &m->layouts[record_index];
-        if (!member_ok) {
+        if (!member_ok || !member_size || !member_align) {
+            if (member_ok)
+                m->layout_error = true;
             free(nt);
             map_free(&om, true);
             free(flat.v);
