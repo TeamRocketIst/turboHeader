@@ -74,11 +74,15 @@ public class ImportIl2CppTypes extends GhidraScript {
             throw new IllegalArgumentException("Program pointer size must be 4 or 8, got " + pointerSize);
         }
 
+        System.out.println("TurboHeader: parsing IL2CPP header...");
         long parseStart = System.nanoTime();
         int nativeApi = NativeParser.nativeApiVersion();
         TypeModel.Model model = NativeParser.parse(header, offsets, pointerSize);
         double parseSeconds = (System.nanoTime() - parseStart) / 1_000_000_000.0;
 
+        long parsedFields = model.structures().stream().mapToLong(s -> s.fields().size()).sum();
+        System.out.println(String.format("TurboHeader: importing %,d structures and %,d fields...",
+                model.structures().size(), parsedFields));
         GhidraTypeImporter importer = new GhidraTypeImporter(currentProgram, model, monitor,
                 layoutPolicy);
         GhidraTypeImporter.ImportStats stats = importer.importTypes();
@@ -125,7 +129,12 @@ public class ImportIl2CppTypes extends GhidraScript {
         }
 
         if (script != null) {
+            System.out.println("TurboHeader: reading script metadata...");
             var scriptData = turboheader.il2cpp.ScriptMethodReader.readAll(script);
+            System.out.println(String.format(
+                    "TurboHeader script: %,d strings, %,d metadata slots, %,d method slots, %,d methods.",
+                    scriptData.strings().size(), scriptData.metadata().size(),
+                    scriptData.metadataMethods().size(), scriptData.methods().size()));
             var stringResult = new turboheader.il2cpp.GhidraStringImporter(currentProgram, monitor)
                     .importStrings(scriptData.strings());
             var stringStats = stringResult.stats();
