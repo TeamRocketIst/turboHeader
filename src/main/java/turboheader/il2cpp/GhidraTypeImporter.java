@@ -696,8 +696,7 @@ public final class GhidraTypeImporter {
         return switch (name) {
             case "il2cpp_array_size_t" -> unsigned(model.pointerSize());
             case "il2cpp_array_lower_bound_t" -> signed(4);
-            case "Il2CppMethodPointer" -> abiFunctionPointer(
-                    "Il2CppMethodPointer", "void", List.of());
+            case "Il2CppMethodPointer" -> dtm.getPointer(VoidDataType.dataType, model.pointerSize());
             case "InvokerMethod" -> abiFunctionPointer("InvokerMethod", "void", List.of(
                     "Il2CppMethodPointer", "MethodInfo*", "void*", "void**", "void*"));
             default -> null;
@@ -715,8 +714,6 @@ public final class GhidraTypeImporter {
         FunctionDefinitionDataType function = new FunctionDefinitionDataType(
                 FUNCTIONS, "__abi_" + name, dtm);
         DataType pointer = dtm.getPointer(function, model.pointerSize());
-        // Publish before resolving arguments so InvokerMethod can refer to
-        // Il2CppMethodPointer without recursive construction.
         functionTypes.put(key, pointer);
         function.setReturnType(resolveType(returnType));
         List<ParameterDefinition> arguments = new ArrayList<>(parameterTypes.size());

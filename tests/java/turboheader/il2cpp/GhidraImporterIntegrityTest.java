@@ -31,7 +31,7 @@ public final class GhidraImporterIntegrityTest {
         cancellationRollsBackCleanupAndShellCreation();
         reportsFallbackReasons();
         importsFunctionPointersAsCodePointers();
-        importsIl2CppAbiAliasesWithoutOpaqueStructures();
+        importsIl2CppAbiCallbackTypes();
         System.out.println("Ghidra importer integrity tests passed");
     }
 
@@ -212,27 +212,44 @@ public final class GhidraImporterIntegrityTest {
         }
     }
 
-    private static void importsIl2CppAbiAliasesWithoutOpaqueStructures() throws Exception {
-        Program program = new Program();
-        Model model = new Model(8, 0, List.of(new StructDef("RuntimeAbi", 32, List.of(
+    private static void importsIl2CppAbiCallbackTypes() throws Exception {
+        assertIl2CppAbiCallbackTypes(4);
+        assertIl2CppAbiCallbackTypes(8);
+    }
+
+    private static void assertIl2CppAbiCallbackTypes(int pointerSize) throws Exception {
+        Program program = new Program(pointerSize);
+        Model model = new Model(pointerSize, 0,
+                List.of(new StructDef("RuntimeAbi", pointerSize * 4, List.of(
                 new FieldDef(0, "length", "il2cpp_array_size_t"),
-                new FieldDef(8, "lower", "il2cpp_array_lower_bound_t"),
-                new FieldDef(16, "method", "Il2CppMethodPointer"),
-                new FieldDef(24, "invoker", "InvokerMethod")))));
+                new FieldDef(pointerSize, "lower", "il2cpp_array_lower_bound_t"),
+                new FieldDef(pointerSize * 2, "method", "Il2CppMethodPointer"),
+                new FieldDef(pointerSize * 3, "invoker", "InvokerMethod")))));
         importer(program, model).importTypes();
         Structure runtime = (Structure) program.getDataTypeManager().getDataType(
                 new DataTypePath(GhidraTypeImporter.ROOT, "RuntimeAbi"));
         check(runtime != null, "runtime ABI structure missing");
         var components = runtime.getDefinedComponents();
         check(components.length == 4, "runtime ABI field count");
-        check(components[0].getDataType().getLength() == 8, "array size width");
+        check(components[0].getDataType().getLength() == pointerSize, "array size width");
         check(components[1].getDataType().getLength() == 4, "array lower-bound width");
-        for (int index = 2; index < 4; index++) {
-            check(components[index].getDataType() instanceof PointerDataType,
-                    "ABI callback is not a pointer");
-            check(((PointerDataType) components[index].getDataType()).getDataType()
-                    instanceof FunctionDefinitionDataType, "ABI callback target is not code");
-        }
+        check(components[2].getDataType() instanceof PointerDataType,
+                "method pointer is not pointer-sized");
+        check(components[2].getDataType().getLength() == pointerSize, "method pointer width");
+        DataType methodTarget = ((PointerDataType) components[2].getDataType()).getDataType();
+        check(!(methodTarget instanceof FunctionDefinitionDataType),
+                "method pointer has a global function definition");
+        check(methodTarget.getName().equals("void"), "method pointer target is not void");
+        check(components[3].getDataType() instanceof PointerDataType,
+                "invoker is not a pointer");
+        check(components[3].getDataType().getLength() == pointerSize, "invoker width");
+        DataType invokerTarget = ((PointerDataType) components[3].getDataType()).getDataType();
+        check(invokerTarget instanceof FunctionDefinitionDataType,
+                "invoker target is not a function definition");
+        FunctionDefinitionDataType invoker = (FunctionDefinitionDataType) invokerTarget;
+        check(invoker.getArguments().length == 5, "invoker argument count");
+        check(invoker.getArguments()[0].getDataType() instanceof PointerDataType,
+                "invoker method-pointer argument is not pointer-sized");
         check(program.getDataTypeManager().getDataType(new DataTypePath(
                 new CategoryPath("/IL2CPP/__opaque"), "il2cpp_array_size_t")) == null,
                 "array size imported as opaque");
