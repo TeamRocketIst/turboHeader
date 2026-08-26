@@ -36,6 +36,24 @@ def nativeStageDir = layout.buildDirectory.dir("native-extension/os")
 def prebuiltOsPath = project.findProperty("TURBOHEADER_PREBUILT_OS") ?:
         System.getenv("TURBOHEADER_PREBUILT_OS")
 
+def releaseFiles = [
+    "extension.properties",
+    "Module.manifest",
+    "LICENSE",
+    "THIRD_PARTY_NOTICES.md",
+    "README.md",
+    "lib/${project.name}.jar",
+    "ghidra_scripts/ImportIl2CppTypes.java",
+    "ghidra_scripts/cpp2il_ghidra_export_editable.py",
+] as Set
+def releaseNativeFiles = [
+    "os/linux_x86_64/libturboheader_il2cpp.so",
+    "os/linux_aarch64/libturboheader_il2cpp.so",
+    "os/mac_x86_64/libturboheader_il2cpp.dylib",
+    "os/mac_aarch64/libturboheader_il2cpp.dylib",
+    "os/win_x86_64/turboheader_il2cpp.dll",
+] as Set
+
 def nativeInputFiles = fileTree("native") {
     include "CMakeLists.txt"
     include "include/**"
@@ -118,6 +136,7 @@ def compileGhidraScripts = tasks.register("compileGhidraScripts", JavaCompile) {
 
 tasks.named("buildExtension", Zip) {
     dependsOn nativePackagingTask, compileGhidraScripts
+    includeEmptyDirs = false
     if (prebuiltOsPath) {
         from(file(prebuiltOsPath)) {
             into "${project.name}/os"
@@ -128,14 +147,14 @@ tasks.named("buildExtension", Zip) {
             into "${project.name}/os"
         }
     }
-    exclude "**/native/build*/**"
-    exclude "**/tests/build*/**"
-    exclude "**/__pycache__/**"
-    exclude "**/*.pyc"
-    exclude ".benchmark/**"
-    exclude ".pytest_cache/**"
-    exclude "**/*.i2gf"
-    exclude "**/.DS_Store"
-    exclude "ghidra-dist/**"
-    exclude "ghidra.zip"
+    eachFile { file ->
+        String prefix = "${project.name}/"
+        String path = file.path
+        String relative = path.startsWith(prefix) ? path.substring(prefix.length()) : path
+        boolean generatedJar = file.name == "${project.name}.jar"
+        if (!generatedJar && !releaseFiles.contains(relative) &&
+                !releaseNativeFiles.contains(relative)) {
+            file.exclude()
+        }
+    }
 }

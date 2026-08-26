@@ -90,8 +90,21 @@ jobs:
             echo "release_tag=$release_tag"
           } >>"$GITHUB_OUTPUT"
 
-  build-desktop:
+  release-tests:
     needs: discover
+    if: needs.discover.outputs.build == 'true'
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: Run complete release test suite
+        run: ./tests/run_all.sh
+
+  build-desktop:
+    needs: [discover, release-tests]
     if: needs.discover.outputs.build == 'true'
     strategy:
       fail-fast: false
@@ -191,19 +204,7 @@ jobs:
           [[ -n "$extension_zip" ]]
           output="turboheader-${EXTENSION_VERSION}-ghidra-${GHIDRA_VERSION}-${PLATFORM}.zip"
           cp "$extension_zip" "$output"
-          python3 - "$output" <<'PY'
-          import sys
-          import zipfile
-          from pathlib import Path
-          archive = Path(sys.argv[1])
-          if archive.stat().st_size > 25 * 1024 * 1024:
-              raise SystemExit(f"extension archive is unexpectedly large: {archive.stat().st_size} bytes")
-          with zipfile.ZipFile(archive) as bundle:
-              forbidden = [name for name in bundle.namelist()
-                           if "ghidra-dist" in name or name.endswith("ghidra.zip")]
-          if forbidden:
-              raise SystemExit(f"extension archive contains Ghidra distribution files: {forbidden[:5]}")
-          PY
+          python3 tools/verify_extension.py "$output"
           echo "ASSET=$output" >>"$GITHUB_ENV"
       - uses: actions/upload-artifact@v6
         with:
@@ -213,7 +214,7 @@ jobs:
           retention-days: 7
 
   build-linux:
-    needs: discover
+    needs: [discover, release-tests]
     if: needs.discover.outputs.build == 'true'
     defaults:
       run:
@@ -308,19 +309,7 @@ jobs:
           [[ -n "$extension_zip" ]]
           output="turboheader-${EXTENSION_VERSION}-ghidra-${GHIDRA_VERSION}-${PLATFORM}.zip"
           cp "$extension_zip" "$output"
-          python3 - "$output" <<'PY'
-          import sys
-          import zipfile
-          from pathlib import Path
-          archive = Path(sys.argv[1])
-          if archive.stat().st_size > 25 * 1024 * 1024:
-              raise SystemExit(f"extension archive is unexpectedly large: {archive.stat().st_size} bytes")
-          with zipfile.ZipFile(archive) as bundle:
-              forbidden = [name for name in bundle.namelist()
-                           if "ghidra-dist" in name or name.endswith("ghidra.zip")]
-          if forbidden:
-              raise SystemExit(f"extension archive contains Ghidra distribution files: {forbidden[:5]}")
-          PY
+          python3 tools/verify_extension.py "$output"
           echo "ASSET=$output" >>"$GITHUB_ENV"
       - uses: actions/upload-artifact@v6
         with:
@@ -330,7 +319,7 @@ jobs:
           retention-days: 7
 
   publish:
-    needs: [discover, build-desktop, build-linux]
+    needs: [discover, release-tests, build-desktop, build-linux]
     if: needs.discover.outputs.build == 'true'
     runs-on: ubuntu-24.04
     permissions:

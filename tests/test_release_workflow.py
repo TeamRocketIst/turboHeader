@@ -17,12 +17,16 @@ def main() -> None:
         "actions/setup-java@v5",
         "actions/upload-artifact@v6",
         "actions/download-artifact@v6",
+        "release-tests:",
+        "Run complete release test suite",
+        "./tests/run_all.sh",
+        "needs: [discover, release-tests]",
+        "needs: [discover, release-tests, build-desktop, build-linux]",
         "repos/NationalSecurityAgency/ghidra/releases/latest",
         "ghidra_digest",
         "Ghidra distribution checksum mismatch",
         '$RUNNER_TEMP/turboheader-ghidra',
-        "extension archive is unexpectedly large",
-        "extension archive contains Ghidra distribution files",
+        "tools/verify_extension.py",
         "linux_x86_64",
         "linux_aarch64",
         "mac_x86_64",
@@ -50,6 +54,10 @@ def main() -> None:
         raise AssertionError("release workflow must define exactly five native platforms")
     if "git/ref/tags/$release_tag" not in text:
         raise AssertionError("release workflow must not overwrite an existing compatibility tag")
+    if text.count("tools/verify_extension.py") != 2:
+        raise AssertionError("every platform extension build must verify its archive allowlist")
+    if text.count("needs: [discover, release-tests]") != 2:
+        raise AssertionError("every platform build must wait for the release test suite")
     print("weekly release workflow checks passed")
 
 
