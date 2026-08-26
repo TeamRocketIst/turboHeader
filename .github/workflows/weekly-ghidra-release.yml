@@ -383,6 +383,7 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v6
       - uses: actions/download-artifact@v6
         with:
           pattern: extension-*
@@ -401,6 +402,11 @@ jobs:
           GHIDRA_TAG: ${{ needs.discover.outputs.ghidra_tag }}
         run: |
           set -euo pipefail
+          manual_notes=".github/release-notes/v${EXTENSION_VERSION}.md"
+          [[ -f "$manual_notes" ]] || {
+            echo "Missing release notes: $manual_notes" >&2
+            exit 1
+          }
           notes="$(mktemp)"
           cat >"$notes" <<EOF
           Automated compatibility build for \`$GHIDRA_TAG\`.
@@ -408,7 +414,9 @@ jobs:
           Each archive contains the same TurboHeader extension and the native
           library for the platform named in the filename. Verify downloads with
           the attached \`SHA256SUMS\` file.
+
           EOF
+          cat "$manual_notes" >>"$notes"
           gh release create "$RELEASE_TAG" \
             --target "$GITHUB_SHA" \
             --title "TurboHeader $EXTENSION_VERSION for Ghidra $GHIDRA_VERSION" \
