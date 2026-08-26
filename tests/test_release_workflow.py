@@ -99,7 +99,14 @@ def main() -> None:
         raise AssertionError(f"release notes are missing for version {version}")
 
     real_ghidra_test = REAL_GHIDRA_TEST.read_text(encoding="utf-8")
-    for required_path_rule in ('${COMSPEC:-}', 'cygpath -u "$COMSPEC"', 'JAVA_TEST_BINARY'):
+    path_rules = (
+        '${COMSPEC:-}',
+        'cygpath -u "$COMSPEC"',
+        'JAVA_TEST_BINARY',
+        'JAVA_ROOT="$(cygpath -m "$ROOT")"',
+        '-scriptPath "$JAVA_ROOT/ghidra_scripts;$JAVA_ROOT/tests/ghidra_scripts"',
+    )
+    for required_path_rule in path_rules:
         if required_path_rule not in real_ghidra_test:
             raise AssertionError(f"real-Ghidra test is missing path rule: {required_path_rule}")
     print("weekly release workflow checks passed")

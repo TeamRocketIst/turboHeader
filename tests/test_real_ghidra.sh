@@ -15,8 +15,10 @@ HEADLESS="$GHIDRA_INSTALL_DIR/support/analyzeHeadless"
 TEST_TEMP="${TURBOHEADER_TEST_TEMP:-${TMPDIR:-/tmp}}"
 mkdir -p "$TEST_TEMP"
 PROJECT_ROOT="$(mktemp -d "$TEST_TEMP/turboheader-ghidra.XXXXXX")"
+JAVA_ROOT="$ROOT"
 JAVA_PROJECT_ROOT="$PROJECT_ROOT"
 if command -v cygpath >/dev/null 2>&1; then
+  JAVA_ROOT="$(cygpath -m "$ROOT")"
   JAVA_PROJECT_ROOT="$(cygpath -m "$PROJECT_ROOT")"
 fi
 TEST_BINARY="${GHIDRA_TEST_BINARY:-}"
@@ -63,18 +65,18 @@ python3 -m zipfile -e "$ZIP" "$GHIDRA_INSTALL_DIR/Ghidra/Extensions"
 
 LOG="$PROJECT_ROOT/headless.log"
 JAVA_TOOL_OPTIONS="${JAVA_TOOL_OPTIONS:+$JAVA_TOOL_OPTIONS }-Dapplication.settingsdir=$JAVA_PROJECT_ROOT/settings -Dapplication.cachedir=$JAVA_PROJECT_ROOT/cache" \
-  bash "$HEADLESS" "$PROJECT_ROOT" TurboHeaderFixture \
+  bash "$HEADLESS" "$JAVA_PROJECT_ROOT" TurboHeaderFixture \
   -import "$JAVA_TEST_BINARY" -noanalysis \
-  -scriptPath "$ROOT/ghidra_scripts;$ROOT/tests/ghidra_scripts" \
+  -scriptPath "$JAVA_ROOT/ghidra_scripts;$JAVA_ROOT/tests/ghidra_scripts" \
   -postScript ImportIl2CppTypes.java \
-  "$ROOT/tests/fixtures/sample.h" "$ROOT/tests/fixtures/type_offsets.json" \
+  "$JAVA_ROOT/tests/fixtures/sample.h" "$JAVA_ROOT/tests/fixtures/type_offsets.json" \
   -postScript VerifyTurboHeaderFixture.java \
   -postScript VerifyTurboHeaderTransactions.java \
-  "$ROOT/tests/fixtures/sample.h" "$ROOT/tests/fixtures/type_offsets.json" 8 \
+  "$JAVA_ROOT/tests/fixtures/sample.h" "$JAVA_ROOT/tests/fixtures/type_offsets.json" 8 \
   -postScript VerifyTurboHeaderProvenance.java \
-  "$ROOT/tests/fixtures/sample.h" "$ROOT/tests/fixtures/type_offsets.json" 8 \
+  "$JAVA_ROOT/tests/fixtures/sample.h" "$JAVA_ROOT/tests/fixtures/type_offsets.json" 8 \
   -postScript ImportIl2CppTypes.java \
-  "$ROOT/tests/fixtures/class_metadata.h" "$ROOT/tests/fixtures/class_metadata_offsets.json" - \
+  "$JAVA_ROOT/tests/fixtures/class_metadata.h" "$JAVA_ROOT/tests/fixtures/class_metadata_offsets.json" - \
   require-external-offsets \
   -postScript VerifyTurboHeaderClassMetadata.java \
   -postScript VerifyGhidraFullHeaderStaticFields.java \
