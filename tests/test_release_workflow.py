@@ -7,6 +7,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 WORKFLOW = ROOT / ".github/workflows/weekly-ghidra-release.yml"
 PROPERTIES = ROOT / "extension.properties"
+REAL_GHIDRA_TEST = ROOT / "tests/test_real_ghidra.sh"
 
 
 def main() -> None:
@@ -82,6 +83,8 @@ def main() -> None:
         raise AssertionError("every platform build must test its exact packaged extension")
     if text.count("TURBOHEADER_TEST_TEMP") != 2:
         raise AssertionError("every platform build must isolate its headless test files")
+    if text.count('chmod +x "$ghidra_dir/support/analyzeHeadless" "$ghidra_dir/support/launch.sh"') != 2:
+        raise AssertionError("every Ghidra extraction must restore launcher permissions")
 
     publish = text.split("\n  publish:", 1)[1]
     checkout = publish.find("- uses: actions/checkout@v6")
@@ -94,6 +97,11 @@ def main() -> None:
     notes = ROOT / ".github/release-notes" / f"v{version}.md"
     if not notes.is_file() or not notes.read_text(encoding="utf-8").strip():
         raise AssertionError(f"release notes are missing for version {version}")
+
+    real_ghidra_test = REAL_GHIDRA_TEST.read_text(encoding="utf-8")
+    for required_path_rule in ('${COMSPEC:-}', 'cygpath -u "$COMSPEC"', 'JAVA_TEST_BINARY'):
+        if required_path_rule not in real_ghidra_test:
+            raise AssertionError(f"real-Ghidra test is missing path rule: {required_path_rule}")
     print("weekly release workflow checks passed")
 
 

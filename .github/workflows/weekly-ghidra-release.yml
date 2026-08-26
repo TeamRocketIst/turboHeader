@@ -202,6 +202,7 @@ jobs:
           ghidra_dir="$(find "$download_dir/ghidra-dist" -mindepth 1 -maxdepth 1 -type d -print -quit)"
           [[ "$(find "$download_dir/ghidra-dist" -mindepth 1 -maxdepth 1 -type d | wc -l)" -eq 1 ]]
           [[ -f "$ghidra_dir/support/buildExtension.gradle" ]]
+          chmod +x "$ghidra_dir/support/analyzeHeadless" "$ghidra_dir/support/launch.sh"
           echo "GHIDRA_INSTALL_DIR=$(cd "$ghidra_dir" && pwd)" >>"$GITHUB_ENV"
       - name: Build and verify native target
         env:
@@ -322,6 +323,7 @@ jobs:
           ghidra_dir="$(find "$download_dir/ghidra-dist" -mindepth 1 -maxdepth 1 -type d -print -quit)"
           [[ "$(find "$download_dir/ghidra-dist" -mindepth 1 -maxdepth 1 -type d | wc -l)" -eq 1 ]]
           [[ -f "$ghidra_dir/support/buildExtension.gradle" ]]
+          chmod +x "$ghidra_dir/support/analyzeHeadless" "$ghidra_dir/support/launch.sh"
           echo "GHIDRA_INSTALL_DIR=$(cd "$ghidra_dir" && pwd)" >>"$GITHUB_ENV"
       - name: Build and verify native target
         env:

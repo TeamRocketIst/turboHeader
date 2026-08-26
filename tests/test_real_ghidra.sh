@@ -19,7 +19,18 @@ JAVA_PROJECT_ROOT="$PROJECT_ROOT"
 if command -v cygpath >/dev/null 2>&1; then
   JAVA_PROJECT_ROOT="$(cygpath -m "$PROJECT_ROOT")"
 fi
-TEST_BINARY="${GHIDRA_TEST_BINARY:-$(command -v ls)}"
+TEST_BINARY="${GHIDRA_TEST_BINARY:-}"
+if [[ -z "$TEST_BINARY" ]]; then
+  if command -v cygpath >/dev/null 2>&1 && [[ -n "${COMSPEC:-}" ]]; then
+    TEST_BINARY="$(cygpath -u "$COMSPEC")"
+  else
+    TEST_BINARY="$(command -v ls)"
+  fi
+fi
+JAVA_TEST_BINARY="$TEST_BINARY"
+if command -v cygpath >/dev/null 2>&1; then
+  JAVA_TEST_BINARY="$(cygpath -m "$TEST_BINARY")"
+fi
 EXTENSION_DIR="$GHIDRA_INSTALL_DIR/Ghidra/Extensions/turboheader-ghidra-il2cpp"
 EXTENSION_BACKUP="$PROJECT_ROOT/installed-extension-backup"
 restore_extension() {
@@ -53,7 +64,7 @@ python3 -m zipfile -e "$ZIP" "$GHIDRA_INSTALL_DIR/Ghidra/Extensions"
 LOG="$PROJECT_ROOT/headless.log"
 JAVA_TOOL_OPTIONS="${JAVA_TOOL_OPTIONS:+$JAVA_TOOL_OPTIONS }-Dapplication.settingsdir=$JAVA_PROJECT_ROOT/settings -Dapplication.cachedir=$JAVA_PROJECT_ROOT/cache" \
   bash "$HEADLESS" "$PROJECT_ROOT" TurboHeaderFixture \
-  -import "$TEST_BINARY" -noanalysis \
+  -import "$JAVA_TEST_BINARY" -noanalysis \
   -scriptPath "$ROOT/ghidra_scripts;$ROOT/tests/ghidra_scripts" \
   -postScript ImportIl2CppTypes.java \
   "$ROOT/tests/fixtures/sample.h" "$ROOT/tests/fixtures/type_offsets.json" \
