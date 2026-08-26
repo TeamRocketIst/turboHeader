@@ -10,9 +10,15 @@ if [[ -z "${GHIDRA_INSTALL_DIR:-}" ]]; then
 fi
 
 HEADLESS="$GHIDRA_INSTALL_DIR/support/analyzeHeadless"
-[[ -x "$HEADLESS" ]] || { printf 'analyzeHeadless not found under %s\n' "$GHIDRA_INSTALL_DIR" >&2; exit 2; }
+[[ -f "$HEADLESS" ]] || { printf 'analyzeHeadless not found under %s\n' "$GHIDRA_INSTALL_DIR" >&2; exit 2; }
 
-PROJECT_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/turboheader-ghidra.XXXXXX")"
+TEST_TEMP="${TURBOHEADER_TEST_TEMP:-${TMPDIR:-/tmp}}"
+mkdir -p "$TEST_TEMP"
+PROJECT_ROOT="$(mktemp -d "$TEST_TEMP/turboheader-ghidra.XXXXXX")"
+JAVA_PROJECT_ROOT="$PROJECT_ROOT"
+if command -v cygpath >/dev/null 2>&1; then
+  JAVA_PROJECT_ROOT="$(cygpath -m "$PROJECT_ROOT")"
+fi
 TEST_BINARY="${GHIDRA_TEST_BINARY:-$(command -v ls)}"
 EXTENSION_DIR="$GHIDRA_INSTALL_DIR/Ghidra/Extensions/turboheader-ghidra-il2cpp"
 EXTENSION_BACKUP="$PROJECT_ROOT/installed-extension-backup"
@@ -25,37 +31,28 @@ restore_extension() {
 }
 trap restore_extension EXIT
 
-rm -rf "$ROOT/dist"
-(cd "$ROOT" && ./gradlew --no-daemon buildExtension >/dev/null)
-ZIP="$(find "$ROOT/dist" -maxdepth 1 -name '*.zip' -type f | head -n 1)"
+ZIP="${TURBOHEADER_EXTENSION_ZIP:-}"
+if [[ -z "$ZIP" ]]; then
+  rm -rf "$ROOT/dist"
+  (cd "$ROOT" && ./gradlew --no-daemon buildExtension >/dev/null)
+  archives=("$ROOT"/dist/*.zip)
+  [[ "${#archives[@]}" -eq 1 && -f "${archives[0]}" ]] || {
+    printf 'expected one extension archive, found %s\n' "${#archives[@]}" >&2
+    exit 1
+  }
+  ZIP="${archives[0]}"
+fi
 [[ -n "$ZIP" ]] || { printf 'extension archive was not produced\n' >&2; exit 1; }
-
-if unzip -Z1 "$ZIP" | grep -Eq '/(native|tests)/build-|__pycache__|\.pyc$|\.DS_Store$|\.i2gf$'; then
-  printf 'extension archive contains a generated build artifact\n' >&2
-  exit 1
-fi
-
-PLATFORM_DIR="$(java -XshowSettings:properties -version 2>&1 | awk -F'= ' '
-  /os.name =/ { os=$2 }
-  /os.arch =/ { arch=$2 }
-  END {
-    if (os ~ /Mac/) p="mac"; else if (os ~ /Windows/) p="win"; else p="linux";
-    if (arch == "amd64" || arch == "x86_64") a="x86_64";
-    else if (arch == "aarch64" || arch == "arm64") a="aarch64";
-    print p "_" a;
-  }')"
-if ! unzip -Z1 "$ZIP" | grep -E "/os/${PLATFORM_DIR}/(lib)?turboheader_il2cpp\.(so|dylib|dll)$" >/dev/null; then
-  printf 'extension archive does not contain the host native library for %s\n' "$PLATFORM_DIR" >&2
-  exit 1
-fi
+[[ -f "$ZIP" ]] || { printf 'extension archive does not exist: %s\n' "$ZIP" >&2; exit 1; }
+python3 "$ROOT/tools/verify_extension.py" "$ZIP"
 if [[ -d "$EXTENSION_DIR" ]]; then
   mv "$EXTENSION_DIR" "$EXTENSION_BACKUP"
 fi
-unzip -q "$ZIP" -d "$GHIDRA_INSTALL_DIR/Ghidra/Extensions"
+python3 -m zipfile -e "$ZIP" "$GHIDRA_INSTALL_DIR/Ghidra/Extensions"
 
 LOG="$PROJECT_ROOT/headless.log"
-JAVA_TOOL_OPTIONS="${JAVA_TOOL_OPTIONS:+$JAVA_TOOL_OPTIONS }-Dapplication.settingsdir=$PROJECT_ROOT/settings -Dapplication.cachedir=$PROJECT_ROOT/cache" \
-  "$HEADLESS" "$PROJECT_ROOT" TurboHeaderFixture \
+JAVA_TOOL_OPTIONS="${JAVA_TOOL_OPTIONS:+$JAVA_TOOL_OPTIONS }-Dapplication.settingsdir=$JAVA_PROJECT_ROOT/settings -Dapplication.cachedir=$JAVA_PROJECT_ROOT/cache" \
+  bash "$HEADLESS" "$PROJECT_ROOT" TurboHeaderFixture \
   -import "$TEST_BINARY" -noanalysis \
   -scriptPath "$ROOT/ghidra_scripts;$ROOT/tests/ghidra_scripts" \
   -postScript ImportIl2CppTypes.java \

@@ -101,10 +101,54 @@ jobs:
           distribution: temurin
           java-version: "21"
       - name: Run complete release test suite
-        run: ./tests/run_all.sh
+        run: CC=gcc ./tests/run_all.sh
+
+  release-clang-sanitizers:
+    needs: discover
+    if: needs.discover.outputs.build == 'true'
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install Clang
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes clang
+      - name: Run Clang ASan and UBSan tests
+        run: |
+          cmake -S native -B native/build-release-clang \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DTURBOHEADER_BUILD_JNI=OFF \
+            -DTURBOHEADER_STRICT_WARNINGS=ON \
+            -DTURBOHEADER_WARNINGS_AS_ERRORS=ON \
+            -DTURBOHEADER_ENABLE_SANITIZERS=ON \
+            -DCMAKE_C_COMPILER=clang
+          cmake --build native/build-release-clang --parallel 2
+          TURBOHEADER_SANITIZER_BUILD_DIR="$PWD/native/build-release-clang" \
+            python3 tests/test_sanitizers.py
+
+  release-valgrind:
+    needs: discover
+    if: needs.discover.outputs.build == 'true'
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install Valgrind
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes valgrind
+      - name: Run Valgrind tests
+        run: |
+          cmake -S native -B native/build-release-valgrind \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DTURBOHEADER_BUILD_JNI=OFF \
+            -DTURBOHEADER_STRICT_WARNINGS=ON \
+            -DTURBOHEADER_WARNINGS_AS_ERRORS=ON
+          cmake --build native/build-release-valgrind --parallel 2
+          TURBOHEADER_VALGRIND_BUILD_DIR="$PWD/native/build-release-valgrind" \
+            python3 tests/test_valgrind.py
 
   build-desktop:
-    needs: [discover, release-tests]
+    needs: [discover, release-tests, release-clang-sanitizers, release-valgrind]
     if: needs.discover.outputs.build == 'true'
     strategy:
       fail-fast: false
@@ -155,7 +199,8 @@ jobs:
                   raise SystemExit("Ghidra distribution checksum mismatch")
           PY
           python3 -m zipfile -e "$download_dir/ghidra.zip" "$download_dir/ghidra-dist"
-          ghidra_dir="$(find "$download_dir/ghidra-dist" -mindepth 1 -maxdepth 1 -type d | head -n 1)"
+          ghidra_dir="$(find "$download_dir/ghidra-dist" -mindepth 1 -maxdepth 1 -type d -print -quit)"
+          [[ "$(find "$download_dir/ghidra-dist" -mindepth 1 -maxdepth 1 -type d | wc -l)" -eq 1 ]]
           [[ -f "$ghidra_dir/support/buildExtension.gradle" ]]
           echo "GHIDRA_INSTALL_DIR=$(cd "$ghidra_dir" && pwd)" >>"$GITHUB_ENV"
       - name: Build and verify native target
@@ -173,8 +218,10 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release
           cmake --build build/native --config Release --parallel 2
 
-          library_path="$(find build/native -type f -name "$LIBRARY" | head -n 1)"
-          cli_path="$(find build/native -type f -name "$CLI" | head -n 1)"
+          library_path="$(find build/native -type f -name "$LIBRARY" -print -quit)"
+          cli_path="$(find build/native -type f -name "$CLI" -print -quit)"
+          [[ "$(find build/native -type f -name "$LIBRARY" | wc -l)" -eq 1 ]]
+          [[ "$(find build/native -type f -name "$CLI" | wc -l)" -eq 1 ]]
           [[ -n "$library_path" && -n "$cli_path" ]]
           mkdir -p "native-verified/$PLATFORM" "extension-os/$PLATFORM"
           cp "$library_path" "$cli_path" "native-verified/$PLATFORM/"
@@ -198,13 +245,18 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          rm -rf dist
           TURBOHEADER_PREBUILT_OS="$PWD/extension-os" \
             ./gradlew --no-daemon clean buildExtension
-          extension_zip="$(find dist -maxdepth 1 -type f -name '*.zip' | head -n 1)"
-          [[ -n "$extension_zip" ]]
+          extension_archives=(dist/*.zip)
+          [[ "${#extension_archives[@]}" -eq 1 && -f "${extension_archives[0]}" ]]
+          extension_zip="${extension_archives[0]}"
           output="turboheader-${EXTENSION_VERSION}-ghidra-${GHIDRA_VERSION}-${PLATFORM}.zip"
           cp "$extension_zip" "$output"
           python3 tools/verify_extension.py "$output"
+          TURBOHEADER_EXTENSION_ZIP="$PWD/$output" \
+            TURBOHEADER_TEST_TEMP="$PWD/build/release-test" \
+            ./tests/test_real_ghidra.sh
           echo "ASSET=$output" >>"$GITHUB_ENV"
       - uses: actions/upload-artifact@v6
         with:
@@ -214,7 +266,7 @@ jobs:
           retention-days: 7
 
   build-linux:
-    needs: [discover, release-tests]
+    needs: [discover, release-tests, release-clang-sanitizers, release-valgrind]
     if: needs.discover.outputs.build == 'true'
     defaults:
       run:
@@ -267,7 +319,8 @@ jobs:
                   raise SystemExit("Ghidra distribution checksum mismatch")
           PY
           python3 -m zipfile -e "$download_dir/ghidra.zip" "$download_dir/ghidra-dist"
-          ghidra_dir="$(find "$download_dir/ghidra-dist" -mindepth 1 -maxdepth 1 -type d | head -n 1)"
+          ghidra_dir="$(find "$download_dir/ghidra-dist" -mindepth 1 -maxdepth 1 -type d -print -quit)"
+          [[ "$(find "$download_dir/ghidra-dist" -mindepth 1 -maxdepth 1 -type d | wc -l)" -eq 1 ]]
           [[ -f "$ghidra_dir/support/buildExtension.gradle" ]]
           echo "GHIDRA_INSTALL_DIR=$(cd "$ghidra_dir" && pwd)" >>"$GITHUB_ENV"
       - name: Build and verify native target
@@ -303,13 +356,18 @@ jobs:
           GHIDRA_VERSION: ${{ needs.discover.outputs.ghidra_version }}
         run: |
           set -euo pipefail
+          rm -rf dist
           TURBOHEADER_PREBUILT_OS="$PWD/extension-os" \
             ./gradlew --no-daemon clean buildExtension
-          extension_zip="$(find dist -maxdepth 1 -type f -name '*.zip' | head -n 1)"
-          [[ -n "$extension_zip" ]]
+          extension_archives=(dist/*.zip)
+          [[ "${#extension_archives[@]}" -eq 1 && -f "${extension_archives[0]}" ]]
+          extension_zip="${extension_archives[0]}"
           output="turboheader-${EXTENSION_VERSION}-ghidra-${GHIDRA_VERSION}-${PLATFORM}.zip"
           cp "$extension_zip" "$output"
           python3 tools/verify_extension.py "$output"
+          TURBOHEADER_EXTENSION_ZIP="$PWD/$output" \
+            TURBOHEADER_TEST_TEMP="$PWD/build/release-test" \
+            ./tests/test_real_ghidra.sh
           echo "ASSET=$output" >>"$GITHUB_ENV"
       - uses: actions/upload-artifact@v6
         with:
@@ -319,7 +377,7 @@ jobs:
           retention-days: 7
 
   publish:
-    needs: [discover, release-tests, build-desktop, build-linux]
+    needs: [discover, release-tests, release-clang-sanitizers, release-valgrind, build-desktop, build-linux]
     if: needs.discover.outputs.build == 'true'
     runs-on: ubuntu-24.04
     permissions:

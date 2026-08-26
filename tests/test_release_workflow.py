@@ -18,15 +18,25 @@ def main() -> None:
         "actions/upload-artifact@v6",
         "actions/download-artifact@v6",
         "release-tests:",
+        "release-clang-sanitizers:",
+        "release-valgrind:",
         "Run complete release test suite",
-        "./tests/run_all.sh",
-        "needs: [discover, release-tests]",
-        "needs: [discover, release-tests, build-desktop, build-linux]",
+        "CC=gcc ./tests/run_all.sh",
+        "Run Clang ASan and UBSan tests",
+        "python3 tests/test_sanitizers.py",
+        "Run Valgrind tests",
+        "python3 tests/test_valgrind.py",
+        "TURBOHEADER_EXTENSION_ZIP",
+        "TURBOHEADER_TEST_TEMP",
+        "./tests/test_real_ghidra.sh",
+        "needs: [discover, release-tests, release-clang-sanitizers, release-valgrind]",
+        "needs: [discover, release-tests, release-clang-sanitizers, release-valgrind, build-desktop, build-linux]",
         "repos/NationalSecurityAgency/ghidra/releases/latest",
         "ghidra_digest",
         "Ghidra distribution checksum mismatch",
         '$RUNNER_TEMP/turboheader-ghidra',
         "tools/verify_extension.py",
+        "extension_archives=(dist/*.zip)",
         "linux_x86_64",
         "linux_aarch64",
         "mac_x86_64",
@@ -56,8 +66,19 @@ def main() -> None:
         raise AssertionError("release workflow must not overwrite an existing compatibility tag")
     if text.count("tools/verify_extension.py") != 2:
         raise AssertionError("every platform extension build must verify its archive allowlist")
-    if text.count("needs: [discover, release-tests]") != 2:
-        raise AssertionError("every platform build must wait for the release test suite")
+    if text.count("rm -rf dist") != 2:
+        raise AssertionError("every platform build must clear stale extension archives")
+    if text.count("extension_archives=(dist/*.zip)") != 2:
+        raise AssertionError("every platform build must require one extension archive")
+    if "head -n 1" in text:
+        raise AssertionError("release inputs must reject ambiguous artifact matches")
+    safety_needs = "needs: [discover, release-tests, release-clang-sanitizers, release-valgrind]"
+    if text.count(safety_needs) != 2:
+        raise AssertionError("every platform build must wait for all release safety tests")
+    if text.count("TURBOHEADER_EXTENSION_ZIP") != 2:
+        raise AssertionError("every platform build must test its exact packaged extension")
+    if text.count("TURBOHEADER_TEST_TEMP") != 2:
+        raise AssertionError("every platform build must isolate its headless test files")
     print("weekly release workflow checks passed")
 
 
