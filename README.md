@@ -2,6 +2,8 @@
 
 turboHeader imports IL2CPP types and method signatures into Ghidra, then exports selected classes as decompiled C++.
 
+After installing TurboHeader, use the [il2cpp-ghidrah wrapper](https://github.com/TeamRocketIst/il2cpp-ghidrah) for an end-to-end command-line workflow.
+
 The workflow has two steps, in this order:
 
 1. Import the IL2CPP data into a Ghidra project.
