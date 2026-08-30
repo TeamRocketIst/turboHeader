@@ -32,6 +32,8 @@ For Ghidra installed with Homebrew on macOS:
 export GHIDRA_INSTALL_DIR="$(brew --prefix ghidra)/libexec"
 ```
 
+Add the appropriate `export` command to `~/.zshrc`, `~/.bashrc`, or `~/.bash_profile` to keep it across terminal sessions.
+
 Download the archive matching your Ghidra version and platform from the
 [TurboHeader releases](https://github.com/TeamRocketIst/turboHeader/releases), then extract it directly into Ghidra:
 
