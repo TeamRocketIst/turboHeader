@@ -14,16 +14,36 @@ The workflow has two steps, in this order:
 - CMake 3.20+
 - A C11 compiler
 
-## Build and install
+## Install
+
+Set `GHIDRA_INSTALL_DIR` to the directory containing `ghidraRun` and `Ghidra/application.properties`.
+
+For a Ghidra archive extracted on Linux:
 
 ```sh
-export GHIDRA_INSTALL_DIR=/opt/ghidra_12.1.2_PUBLIC
-./gradlew --no-daemon buildExtension
+export GHIDRA_INSTALL_DIR="$HOME/ghidra_12.1.2_PUBLIC"
 ```
 
-Install the ZIP from `dist/` using **File -> Install Extensions**, or extract it manually:
+For Ghidra installed with Homebrew on macOS:
 
 ```sh
+export GHIDRA_INSTALL_DIR="$(brew --prefix ghidra)/libexec"
+```
+
+Download the archive matching your Ghidra version and platform from the
+[TurboHeader releases](https://github.com/TeamRocketIst/turboHeader/releases), then extract it directly into Ghidra:
+
+```sh
+TURBOHEADER_ZIP=/path/to/downloaded/turboheader-release.zip
+unzip "$TURBOHEADER_ZIP" -d "$GHIDRA_INSTALL_DIR/Ghidra/Extensions"
+```
+
+Linux archives end in `linux_x86_64` or `linux_aarch64`. macOS archives end in `mac_x86_64` or `mac_aarch64`.
+
+To build the extension locally instead:
+
+```sh
+./gradlew --no-daemon buildExtension
 unzip dist/ghidra_12.1.2_PUBLIC_20260815_turboheader-ghidra-il2cpp.zip \
   -d "$GHIDRA_INSTALL_DIR/Ghidra/Extensions"
 ```
