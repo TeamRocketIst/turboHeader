@@ -33,8 +33,11 @@ def main() -> None:
         "./tests/test_real_ghidra.sh",
         "needs: [discover, release-tests, release-clang-sanitizers, release-valgrind]",
         "needs: [discover, release-tests, release-clang-sanitizers, release-valgrind, build-desktop, build-linux]",
+        'REQUESTED_TAG: ${{ inputs.ghidra_tag }}',
+        'repos/NationalSecurityAgency/ghidra/releases/tags/$requested_tag',
         "repos/NationalSecurityAgency/ghidra/releases/latest",
-        "ghidra_digest",
+        "ghidra_matrix",
+        "fromJSON(needs.discover.outputs.ghidra_matrix)",
         "Ghidra distribution checksum mismatch",
         '$RUNNER_TEMP/turboheader-ghidra',
         "tools/verify_extension.py",
@@ -58,6 +61,13 @@ def main() -> None:
         'manual_notes=".github/release-notes/v${EXTENSION_VERSION}.md"',
         'cat "$manual_notes" >>"$notes"',
         "gh release create",
+        "gh release upload",
+        "gh release edit",
+        "gh release download",
+        "Preserve existing compatibility archives",
+        "cp --no-clobber",
+        "--clobber",
+        "--latest",
         "GH_REPO: ${{ github.repository }}",
     )
     missing = [value for value in required if value not in text]
@@ -66,8 +76,14 @@ def main() -> None:
 
     if text.count("platform:") != 5:
         raise AssertionError("release workflow must define exactly five native platforms")
-    if "git/ref/tags/$release_tag" not in text:
-        raise AssertionError("release workflow must not overwrite an existing compatibility tag")
+    if 'release_tag="v${extension_version}"' not in text:
+        raise AssertionError("release tag must identify TurboHeader independently of Ghidra")
+    if 'release_tag="v${extension_version}-ghidra-' in text:
+        raise AssertionError("release tag must not encode a Ghidra version")
+    if text.count("fromJSON(needs.discover.outputs.ghidra_matrix)") != 2:
+        raise AssertionError("desktop and Linux builds must use the supported-Ghidra matrix")
+    if text.count("extension-${{ matrix.ghidra.version }}-${{ matrix.target.platform }}") != 2:
+        raise AssertionError("artifacts must be unique for every Ghidra and platform pair")
     if text.count("tools/verify_extension.py") != 2:
         raise AssertionError("every platform extension build must verify its archive allowlist")
     if text.count("rm -rf dist") != 2:

@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       ghidra_tag:
-        description: "Ghidra release tag; leave empty to use the latest stable release"
+        description: "Ghidra release tag; leave empty to use the latest official release"
         required: false
         type: string
 
@@ -25,10 +25,7 @@ jobs:
     outputs:
       build: ${{ steps.release.outputs.build }}
       extension_version: ${{ steps.release.outputs.extension_version }}
-      ghidra_tag: ${{ steps.release.outputs.ghidra_tag }}
-      ghidra_digest: ${{ steps.release.outputs.ghidra_digest }}
-      ghidra_version: ${{ steps.release.outputs.ghidra_version }}
-      ghidra_url: ${{ steps.release.outputs.ghidra_url }}
+      ghidra_matrix: ${{ steps.release.outputs.ghidra_matrix }}
       release_tag: ${{ steps.release.outputs.release_tag }}
     steps:
       - uses: actions/checkout@v6
@@ -40,13 +37,28 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          extension_version="$(sed -n 's/^version=//p' extension.properties)"
+          [[ -n "$extension_version" ]] || {
+            echo "extension.properties has no version" >&2
+            exit 1
+          }
+          release_tag="v${extension_version}"
           if [[ -n "${REQUESTED_TAG:-}" ]]; then
-            release_json="$(gh api "repos/NationalSecurityAgency/ghidra/releases/tags/$REQUESTED_TAG")"
+            requested_tag="$REQUESTED_TAG"
+            [[ "$requested_tag" =~ ^Ghidra_[0-9]+\.[0-9]+(\.[0-9]+)?_build$ ]] || {
+              echo "Invalid Ghidra release tag: $requested_tag" >&2
+              exit 1
+            }
+            release_json="$(gh api "repos/NationalSecurityAgency/ghidra/releases/tags/$requested_tag")"
           else
             release_json="$(gh api repos/NationalSecurityAgency/ghidra/releases/latest)"
+            requested_tag="$(jq -r '.tag_name // empty' <<<"$release_json")"
           fi
+          [[ "$requested_tag" =~ ^Ghidra_[0-9]+\.[0-9]+(\.[0-9]+)?_build$ ]] || {
+            echo "Invalid Ghidra release tag returned by GitHub: $requested_tag" >&2
+            exit 1
+          }
 
-          ghidra_tag="$(jq -r '.tag_name' <<<"$release_json")"
           ghidra_asset_json="$(jq -c '
             [.assets[] | select(
               (.name | endswith(".zip")) and
@@ -56,37 +68,46 @@ jobs:
           ghidra_url="$(jq -r '.browser_download_url // empty' <<<"$ghidra_asset_json")"
           ghidra_digest="$(jq -r '.digest // empty' <<<"$ghidra_asset_json")"
           [[ -n "$ghidra_url" ]] || {
-            echo "No public Ghidra distribution ZIP found for $ghidra_tag" >&2
+            echo "No public Ghidra distribution ZIP found for $requested_tag" >&2
             exit 1
           }
-
           ghidra_asset="${ghidra_url##*/}"
           ghidra_version="$(sed -E 's/^ghidra_([^_]+)_PUBLIC_.*/\1/' <<<"$ghidra_asset")"
           [[ "$ghidra_version" != "$ghidra_asset" ]] || {
             echo "Cannot determine Ghidra version from $ghidra_asset" >&2
             exit 1
           }
-          extension_version="$(sed -n 's/^version=//p' extension.properties)"
-          [[ -n "$extension_version" ]] || {
-            echo "extension.properties has no version" >&2
-            exit 1
-          }
-          release_tag="v${extension_version}-ghidra-${ghidra_version}"
+          ghidra_matrix="$(jq -cn \
+            --arg tag "$requested_tag" \
+            --arg version "$ghidra_version" \
+            --arg url "$ghidra_url" \
+            --arg digest "$ghidra_digest" \
+            '[{tag:$tag,version:$version,url:$url,digest:$digest}]')"
 
-          if gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/$release_tag" >/dev/null 2>&1; then
+          build=true
+          published="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/$release_tag" 2>/dev/null || true)"
+          if [[ -n "$published" ]]; then
+            existing="$(jq -r '.assets[].name' <<<"$published")"
             build=false
-            echo "Release tag $release_tag already exists; nothing to publish."
-          else
-            build=true
+            platforms=(win_x86_64 mac_x86_64 mac_aarch64 linux_x86_64 linux_aarch64)
+            for platform in "${platforms[@]}"; do
+              asset="turboheader-${extension_version}-ghidra-${ghidra_version}-${platform}.zip"
+              if ! grep -Fxq "$asset" <<<"$existing"; then
+                build=true
+              fi
+            done
+            if ! grep -Fxq SHA256SUMS <<<"$existing"; then
+              build=true
+            fi
+          fi
+          if [[ "$build" == false ]]; then
+            echo "Release $release_tag already contains every $ghidra_version build."
           fi
 
           {
             echo "build=$build"
             echo "extension_version=$extension_version"
-            echo "ghidra_tag=$ghidra_tag"
-            echo "ghidra_digest=$ghidra_digest"
-            echo "ghidra_version=$ghidra_version"
-            echo "ghidra_url=$ghidra_url"
+            echo "ghidra_matrix=$ghidra_matrix"
             echo "release_tag=$release_tag"
           } >>"$GITHUB_OUTPUT"
 
@@ -153,7 +174,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
+        ghidra: ${{ fromJSON(needs.discover.outputs.ghidra_matrix) }}
+        target:
           - platform: win_x86_64
             os: windows-2022
             library: turboheader_il2cpp.dll
@@ -166,7 +188,7 @@ jobs:
             os: macos-15
             library: libturboheader_il2cpp.dylib
             cli: il2cpp_native_cli
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ matrix.target.os }}
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-java@v5
@@ -175,8 +197,8 @@ jobs:
           java-version: "21"
       - name: Download Ghidra
         env:
-          GHIDRA_URL: ${{ needs.discover.outputs.ghidra_url }}
-          GHIDRA_DIGEST: ${{ needs.discover.outputs.ghidra_digest }}
+          GHIDRA_URL: ${{ matrix.ghidra.url }}
+          GHIDRA_DIGEST: ${{ matrix.ghidra.digest }}
         shell: bash
         run: |
           set -euo pipefail
@@ -206,9 +228,9 @@ jobs:
           echo "GHIDRA_INSTALL_DIR=$(cd "$ghidra_dir" && pwd)" >>"$GITHUB_ENV"
       - name: Build and verify native target
         env:
-          PLATFORM: ${{ matrix.platform }}
-          LIBRARY: ${{ matrix.library }}
-          CLI: ${{ matrix.cli }}
+          PLATFORM: ${{ matrix.target.platform }}
+          LIBRARY: ${{ matrix.target.library }}
+          CLI: ${{ matrix.target.cli }}
         shell: bash
         run: |
           set -euo pipefail
@@ -240,9 +262,9 @@ jobs:
             --smoke-offsets tests/fixtures/type_offsets.json
       - name: Package extension
         env:
-          PLATFORM: ${{ matrix.platform }}
+          PLATFORM: ${{ matrix.target.platform }}
           EXTENSION_VERSION: ${{ needs.discover.outputs.extension_version }}
-          GHIDRA_VERSION: ${{ needs.discover.outputs.ghidra_version }}
+          GHIDRA_VERSION: ${{ matrix.ghidra.version }}
         shell: bash
         run: |
           set -euo pipefail
@@ -261,7 +283,7 @@ jobs:
           echo "ASSET=$output" >>"$GITHUB_ENV"
       - uses: actions/upload-artifact@v6
         with:
-          name: extension-${{ matrix.platform }}
+          name: extension-${{ matrix.ghidra.version }}-${{ matrix.target.platform }}
           path: ${{ env.ASSET }}
           if-no-files-found: error
           retention-days: 7
@@ -275,14 +297,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
+        ghidra: ${{ fromJSON(needs.discover.outputs.ghidra_matrix) }}
+        target:
           - platform: linux_x86_64
             os: ubuntu-24.04
             arch: x86_64
           - platform: linux_aarch64
             os: ubuntu-24.04-arm
             arch: aarch64
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ matrix.target.os }}
     container: ubuntu:22.04
     steps:
       - name: Install build dependencies
@@ -297,8 +320,8 @@ jobs:
           java-version: "21"
       - name: Download Ghidra
         env:
-          GHIDRA_URL: ${{ needs.discover.outputs.ghidra_url }}
-          GHIDRA_DIGEST: ${{ needs.discover.outputs.ghidra_digest }}
+          GHIDRA_URL: ${{ matrix.ghidra.url }}
+          GHIDRA_DIGEST: ${{ matrix.ghidra.digest }}
         run: |
           set -euo pipefail
           download_dir="$RUNNER_TEMP/turboheader-ghidra"
@@ -327,8 +350,8 @@ jobs:
           echo "GHIDRA_INSTALL_DIR=$(cd "$ghidra_dir" && pwd)" >>"$GITHUB_ENV"
       - name: Build and verify native target
         env:
-          PLATFORM: ${{ matrix.platform }}
-          ARCH: ${{ matrix.arch }}
+          PLATFORM: ${{ matrix.target.platform }}
+          ARCH: ${{ matrix.target.arch }}
         run: |
           set -euo pipefail
           cmake -S native -B build/native -G Ninja \
@@ -353,9 +376,9 @@ jobs:
             --smoke-offsets tests/fixtures/type_offsets.json
       - name: Package extension
         env:
-          PLATFORM: ${{ matrix.platform }}
+          PLATFORM: ${{ matrix.target.platform }}
           EXTENSION_VERSION: ${{ needs.discover.outputs.extension_version }}
-          GHIDRA_VERSION: ${{ needs.discover.outputs.ghidra_version }}
+          GHIDRA_VERSION: ${{ matrix.ghidra.version }}
         run: |
           set -euo pipefail
           rm -rf dist
@@ -373,7 +396,7 @@ jobs:
           echo "ASSET=$output" >>"$GITHUB_ENV"
       - uses: actions/upload-artifact@v6
         with:
-          name: extension-${{ matrix.platform }}
+          name: extension-${{ matrix.ghidra.version }}-${{ matrix.target.platform }}
           path: ${{ env.ASSET }}
           if-no-files-found: error
           retention-days: 7
@@ -391,6 +414,22 @@ jobs:
           pattern: extension-*
           path: release-assets
           merge-multiple: true
+      - name: Preserve existing compatibility archives
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ needs.discover.outputs.release_tag }}
+        run: |
+          set -euo pipefail
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            mkdir -p existing-assets
+            while IFS= read -r asset; do
+              gh release download "$RELEASE_TAG" --pattern "$asset" --dir existing-assets
+            done < <(gh release view "$RELEASE_TAG" --json assets \
+              --jq '.assets[].name | select(endswith(".zip"))')
+            find existing-assets -maxdepth 1 -type f -name '*.zip' \
+              -exec cp --no-clobber {} release-assets/ \;
+          fi
       - name: Create checksums
         working-directory: release-assets
         run: sha256sum *.zip > SHA256SUMS
@@ -400,8 +439,6 @@ jobs:
           GH_REPO: ${{ github.repository }}
           RELEASE_TAG: ${{ needs.discover.outputs.release_tag }}
           EXTENSION_VERSION: ${{ needs.discover.outputs.extension_version }}
-          GHIDRA_VERSION: ${{ needs.discover.outputs.ghidra_version }}
-          GHIDRA_TAG: ${{ needs.discover.outputs.ghidra_tag }}
         run: |
           set -euo pipefail
           manual_notes=".github/release-notes/v${EXTENSION_VERSION}.md"
@@ -410,18 +447,41 @@ jobs:
             exit 1
           }
           notes="$(mktemp)"
+          versions="$(mktemp)"
+          for archive in release-assets/*.zip; do
+            name="${archive##*/}"
+            version_platform="${name#turboheader-${EXTENSION_VERSION}-ghidra-}"
+            printf '%s\n' "${version_platform%%-*}" >>"$versions"
+          done
           cat >"$notes" <<EOF
-          Automated compatibility build for \`$GHIDRA_TAG\`.
+          This release includes verified builds for these Ghidra versions:
 
-          Each archive contains the same TurboHeader extension and the native
-          library for the platform named in the filename. Verify downloads with
-          the attached \`SHA256SUMS\` file.
+          | Ghidra | Windows x86-64 | macOS x86-64 | macOS ARM64 | Linux x86-64 | Linux ARM64 |
+          | --- | --- | --- | --- | --- | --- |
+          EOF
+          while IFS= read -r ghidra_version; do
+            printf '| %s | yes | yes | yes | yes | yes |\n' "$ghidra_version" >>"$notes"
+          done < <(sort -Vu "$versions")
+          cat >>"$notes" <<EOF
+
+          Choose the archive containing your exact Ghidra version and platform.
+          Verify downloads with the attached \`SHA256SUMS\` file.
 
           EOF
           cat "$manual_notes" >>"$notes"
-          gh release create "$RELEASE_TAG" \
-            --target "$GITHUB_SHA" \
-            --title "TurboHeader $EXTENSION_VERSION for Ghidra $GHIDRA_VERSION" \
-            --generate-notes \
-            --notes-file "$notes" \
-            release-assets/*.zip release-assets/SHA256SUMS
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" --clobber \
+              release-assets/*.zip release-assets/SHA256SUMS
+            gh release edit "$RELEASE_TAG" \
+              --title "TurboHeader $EXTENSION_VERSION" \
+              --notes-file "$notes" \
+              --latest
+          else
+            gh release create "$RELEASE_TAG" \
+              --target "$GITHUB_SHA" \
+              --title "TurboHeader $EXTENSION_VERSION" \
+              --generate-notes \
+              --notes-file "$notes" \
+              --latest \
+              release-assets/*.zip release-assets/SHA256SUMS
+          fi
