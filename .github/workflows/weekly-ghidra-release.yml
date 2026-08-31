@@ -60,7 +60,7 @@ jobs:
           }
 
           ghidra_asset_json="$(jq -c '
-            [.assets[] | select(
+            [.assets[]? | select(
               (.name | endswith(".zip")) and
               (.name | contains("_PUBLIC_"))
             )][0] // empty
@@ -85,9 +85,8 @@ jobs:
             '[{tag:$tag,version:$version,url:$url,digest:$digest}]')"
 
           build=true
-          published="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/$release_tag" 2>/dev/null || true)"
-          if [[ -n "$published" ]]; then
-            existing="$(jq -r '.assets[].name' <<<"$published")"
+          if published="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/$release_tag" 2>/dev/null)"; then
+            existing="$(jq -r '.assets[]?.name // empty' <<<"$published")"
             build=false
             platforms=(win_x86_64 mac_x86_64 mac_aarch64 linux_x86_64 linux_aarch64)
             for platform in "${platforms[@]}"; do
@@ -426,7 +425,7 @@ jobs:
             while IFS= read -r asset; do
               gh release download "$RELEASE_TAG" --pattern "$asset" --dir existing-assets
             done < <(gh release view "$RELEASE_TAG" --json assets \
-              --jq '.assets[].name | select(endswith(".zip"))')
+              --jq '.assets[]?.name | select(endswith(".zip"))')
             find existing-assets -maxdepth 1 -type f -name '*.zip' \
               -exec cp --no-clobber {} release-assets/ \;
           fi

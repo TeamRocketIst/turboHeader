@@ -36,6 +36,8 @@ def main() -> None:
         'REQUESTED_TAG: ${{ inputs.ghidra_tag }}',
         'repos/NationalSecurityAgency/ghidra/releases/tags/$requested_tag',
         "repos/NationalSecurityAgency/ghidra/releases/latest",
+        'if published="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/$release_tag" 2>/dev/null)"; then',
+        ".assets[]?.name // empty",
         "ghidra_matrix",
         "fromJSON(needs.discover.outputs.ghidra_matrix)",
         "Ghidra distribution checksum mismatch",
@@ -76,6 +78,8 @@ def main() -> None:
 
     if text.count("platform:") != 5:
         raise AssertionError("release workflow must define exactly five native platforms")
+    if 'releases/tags/$release_tag" 2>/dev/null || true' in text:
+        raise AssertionError("a missing aggregate release must not leave an API error body to parse")
     if 'release_tag="v${extension_version}"' not in text:
         raise AssertionError("release tag must identify TurboHeader independently of Ghidra")
     if 'release_tag="v${extension_version}-ghidra-' in text:
