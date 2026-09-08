@@ -133,7 +133,9 @@ public final class HeadlessRequestReader {
             if (!"export".equals(operation)) {
                 throw new IOException("request operation must be export");
             }
-            if (decompileJobs == null || decompileJobs < 0 || decompileJobs > 12) {
+            if (decompileJobs == null ||
+                    decompileJobs < Il2CppDecompilationPolicy.LEGACY_SEQUENTIAL ||
+                    decompileJobs > Il2CppDecompilationPolicy.MAX_WORKERS) {
                 throw new IOException("decompileJobs must be between 0 and 12");
             }
 
