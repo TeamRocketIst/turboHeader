@@ -143,7 +143,7 @@ public final class HeadlessRequestReader {
                     frameworkRules, "frameworkRules");
             Path seedsPath = noreturnSeeds == null ? null : regularFile(
                     noreturnSeeds, "noreturnSeeds");
-            return new ExportRequest(classSourcePath, outputPath, ExportScope.parse(scope),
+            return new ExportRequest(classSourcePath, outputPath, Il2CppExportScope.parse(scope),
                     rulesPath, seedsPath, decompileJobs);
         }
         catch (IllegalStateException error) {
@@ -297,26 +297,11 @@ public final class HeadlessRequestReader {
         }
     }
 
-    public enum ExportScope {
-        WHITELIST,
-        BLACKLIST,
-        ALL;
-
-        static ExportScope parse(String value) throws IOException {
-            return switch (value) {
-                case "whitelist" -> WHITELIST;
-                case "blacklist" -> BLACKLIST;
-                case "all" -> ALL;
-                default -> throw new IOException("unknown export scope: " + value);
-            };
-        }
-    }
-
     public record ImportRequest(Path header, Path offsets, Path methods,
             LayoutPolicy layoutPolicy) {
     }
 
-    public record ExportRequest(Path classSource, Path output, ExportScope scope,
+    public record ExportRequest(Path classSource, Path output, Il2CppExportScope scope,
             Path frameworkRules, Path noreturnSeeds, int decompileJobs) {
     }
 }

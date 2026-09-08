@@ -126,7 +126,7 @@ public final class HeadlessRequestReaderTest {
         var result = HeadlessRequestReader.readExport(request);
         check(result.classSource().equals(classes.toRealPath()), "class source path");
         check(result.output().equals(output.toAbsolutePath()), "output path");
-        check(result.scope() == HeadlessRequestReader.ExportScope.BLACKLIST, "export scope");
+        check(result.scope() == Il2CppExportScope.BLACKLIST, "export scope");
         check(result.frameworkRules().equals(rules.toRealPath()), "framework rules path");
         check(result.noreturnSeeds().equals(seeds.toRealPath()), "noreturn path");
         check(result.decompileJobs() == 4, "worker count");
