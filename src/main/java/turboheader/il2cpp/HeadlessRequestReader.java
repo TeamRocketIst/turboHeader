@@ -58,12 +58,7 @@ public final class HeadlessRequestReader {
                 }
             }
             reader.endObject();
-            try {
-                requireToken(reader, JsonToken.END_DOCUMENT, "request has trailing JSON data");
-            }
-            catch (MalformedJsonException error) {
-                throw new IOException("request has trailing JSON data", error);
-            }
+            requireEnd(reader);
 
             requireField(fields, "schema");
             requireField(fields, "operation");
@@ -83,6 +78,73 @@ public final class HeadlessRequestReader {
             Path methodsPath = methods == null ? null : regularFile(methods, "methods");
             return new ImportRequest(headerPath, offsetsPath, methodsPath,
                     LayoutPolicy.parse(policy));
+        }
+        catch (IllegalStateException error) {
+            throw new IOException("invalid request JSON", error);
+        }
+    }
+
+    public static ExportRequest readExport(Path path) throws IOException {
+        String json = decodeUtf8(readManifest(path));
+        try (JsonReader reader = new JsonReader(new StringReader(json))) {
+            Integer schema = null;
+            String operation = null;
+            String classSource = null;
+            String output = null;
+            String scope = null;
+            String frameworkRules = null;
+            String noreturnSeeds = null;
+            Integer decompileJobs = null;
+            Set<String> fields = new HashSet<>();
+
+            requireToken(reader, JsonToken.BEGIN_OBJECT, "request must be a JSON object");
+            reader.beginObject();
+            while (reader.hasNext()) {
+                String field = reader.nextName();
+                if (!fields.add(field)) {
+                    throw new IOException("duplicate request field: " + field);
+                }
+                switch (field) {
+                    case "schema" -> schema = readInteger(reader, field);
+                    case "operation" -> operation = readString(reader, field);
+                    case "classSource" -> classSource = readString(reader, field);
+                    case "output" -> output = readString(reader, field);
+                    case "scope" -> scope = readString(reader, field);
+                    case "frameworkRules" -> frameworkRules = readNullableString(reader, field);
+                    case "noreturnSeeds" -> noreturnSeeds = readNullableString(reader, field);
+                    case "decompileJobs" -> decompileJobs = readInteger(reader, field);
+                    default -> throw new IOException("unknown request field: " + field);
+                }
+            }
+            reader.endObject();
+            requireEnd(reader);
+
+            requireField(fields, "schema");
+            requireField(fields, "operation");
+            requireField(fields, "classSource");
+            requireField(fields, "output");
+            requireField(fields, "scope");
+            requireField(fields, "frameworkRules");
+            requireField(fields, "noreturnSeeds");
+            requireField(fields, "decompileJobs");
+            if (schema == null || schema != 1) {
+                throw new IOException("unsupported request schema: " + schema);
+            }
+            if (!"export".equals(operation)) {
+                throw new IOException("request operation must be export");
+            }
+            if (decompileJobs == null || decompileJobs < 0 || decompileJobs > 12) {
+                throw new IOException("decompileJobs must be between 0 and 12");
+            }
+
+            Path classSourcePath = regularDirectory(classSource, "classSource");
+            Path outputPath = outputDirectory(output);
+            Path rulesPath = frameworkRules == null ? null : regularFile(
+                    frameworkRules, "frameworkRules");
+            Path seedsPath = noreturnSeeds == null ? null : regularFile(
+                    noreturnSeeds, "noreturnSeeds");
+            return new ExportRequest(classSourcePath, outputPath, ExportScope.parse(scope),
+                    rulesPath, seedsPath, decompileJobs);
         }
         catch (IllegalStateException error) {
             throw new IOException("invalid request JSON", error);
@@ -158,7 +220,53 @@ public final class HeadlessRequestReader {
         }
     }
 
+    private static void requireEnd(JsonReader reader) throws IOException {
+        try {
+            requireToken(reader, JsonToken.END_DOCUMENT, "request has trailing JSON data");
+        }
+        catch (MalformedJsonException error) {
+            throw new IOException("request has trailing JSON data", error);
+        }
+    }
+
     private static Path regularFile(String value, String field) throws IOException {
+        Path path = absolutePath(value, field);
+        if (Files.isSymbolicLink(path) ||
+                !Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)) {
+            throw new IOException(field + " path must identify a regular file");
+        }
+        return path.toRealPath(LinkOption.NOFOLLOW_LINKS);
+    }
+
+    private static Path regularDirectory(String value, String field) throws IOException {
+        Path path = absolutePath(value, field);
+        if (Files.isSymbolicLink(path) ||
+                !Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS)) {
+            throw new IOException(field + " path must identify a directory");
+        }
+        return path.toRealPath(LinkOption.NOFOLLOW_LINKS);
+    }
+
+    private static Path outputDirectory(String value) throws IOException {
+        Path path = absolutePath(value, "output");
+        if (Files.isSymbolicLink(path)) {
+            throw new IOException("output path must not be a symbolic link");
+        }
+        if (Files.exists(path, LinkOption.NOFOLLOW_LINKS)) {
+            if (!Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS)) {
+                throw new IOException("output path must identify a directory");
+            }
+            return path.toRealPath(LinkOption.NOFOLLOW_LINKS);
+        }
+
+        Path parent = path.getParent();
+        if (parent == null || !Files.isDirectory(parent)) {
+            throw new IOException("output parent must identify a directory");
+        }
+        return parent.toRealPath().resolve(path.getFileName());
+    }
+
+    private static Path absolutePath(String value, String field) throws IOException {
         if (value == null || value.isEmpty() || value.length() > MAX_PATH_CHARS) {
             throw new IOException("invalid " + field + " path");
         }
@@ -167,11 +275,7 @@ public final class HeadlessRequestReader {
             if (!path.isAbsolute()) {
                 throw new IOException(field + " path must be absolute");
             }
-            if (Files.isSymbolicLink(path) ||
-                    !Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)) {
-                throw new IOException(field + " path must identify a regular file");
-            }
-            return path.toRealPath(LinkOption.NOFOLLOW_LINKS);
+            return path;
         }
         catch (InvalidPathException error) {
             throw new IOException("invalid " + field + " path", error);
@@ -193,7 +297,26 @@ public final class HeadlessRequestReader {
         }
     }
 
+    public enum ExportScope {
+        WHITELIST,
+        BLACKLIST,
+        ALL;
+
+        static ExportScope parse(String value) throws IOException {
+            return switch (value) {
+                case "whitelist" -> WHITELIST;
+                case "blacklist" -> BLACKLIST;
+                case "all" -> ALL;
+                default -> throw new IOException("unknown export scope: " + value);
+            };
+        }
+    }
+
     public record ImportRequest(Path header, Path offsets, Path methods,
             LayoutPolicy layoutPolicy) {
+    }
+
+    public record ExportRequest(Path classSource, Path output, ExportScope scope,
+            Path frameworkRules, Path noreturnSeeds, int decompileJobs) {
     }
 }

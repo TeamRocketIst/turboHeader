@@ -25,6 +25,13 @@ public final class HeadlessRequestReaderTest {
             rejectsTrailingData(directory, header);
             rejectsMalformedUtf8(directory);
             rejectsOversizedManifest(directory);
+            readsValidExport(directory);
+            acceptsNullExportFiles(directory);
+            rejectsUnknownExportField(directory);
+            rejectsInvalidExportScope(directory);
+            rejectsInvalidWorkerCount(directory);
+            rejectsRelativeClassSource(directory);
+            rejectsSymlinkedOutput(directory);
         }
         finally {
             try (var paths = Files.walk(directory)) {
@@ -108,10 +115,84 @@ public final class HeadlessRequestReaderTest {
         expectFailure(request, "not valid UTF-8");
     }
 
+    private static void readsValidExport(Path directory) throws Exception {
+        Path classes = Files.createDirectory(directory.resolve("classes"));
+        Path rules = write(directory, "framework-rules.txt", "Framework.*\n");
+        Path seeds = write(directory, "noreturn.txt", "00001000\n");
+        Path output = directory.resolve("cpp");
+        Path request = write(directory, "export.json",
+                exportRequest(classes, output, "blacklist", rules, seeds, 4));
+
+        var result = HeadlessRequestReader.readExport(request);
+        check(result.classSource().equals(classes.toRealPath()), "class source path");
+        check(result.output().equals(output.toAbsolutePath()), "output path");
+        check(result.scope() == HeadlessRequestReader.ExportScope.BLACKLIST, "export scope");
+        check(result.frameworkRules().equals(rules.toRealPath()), "framework rules path");
+        check(result.noreturnSeeds().equals(seeds.toRealPath()), "noreturn path");
+        check(result.decompileJobs() == 4, "worker count");
+    }
+
+    private static void acceptsNullExportFiles(Path directory) throws Exception {
+        Path classes = directory.resolve("classes");
+        Path output = directory.resolve("cpp");
+        Path request = write(directory, "export-optional.json",
+                exportRequest(classes, output, "all", null, null, 0));
+
+        var result = HeadlessRequestReader.readExport(request);
+        check(result.frameworkRules() == null, "null framework rules");
+        check(result.noreturnSeeds() == null, "null noreturn path");
+    }
+
+    private static void rejectsUnknownExportField(Path directory) throws Exception {
+        String json = exportRequest(directory.resolve("classes"), directory.resolve("cpp"),
+                "all", null, null, 4);
+        expectExportFailure(write(directory, "export-unknown.json",
+                json.replace("}", ",\"extra\":true}")), "unknown request field");
+    }
+
+    private static void rejectsInvalidExportScope(Path directory) throws Exception {
+        expectExportFailure(write(directory, "export-scope.json",
+                exportRequest(directory.resolve("classes"), directory.resolve("cpp"),
+                        "unknown", null, null, 4)), "unknown export scope");
+    }
+
+    private static void rejectsInvalidWorkerCount(Path directory) throws Exception {
+        expectExportFailure(write(directory, "export-workers.json",
+                exportRequest(directory.resolve("classes"), directory.resolve("cpp"),
+                        "all", null, null, 13)), "decompileJobs must be between");
+    }
+
+    private static void rejectsRelativeClassSource(Path directory) throws Exception {
+        expectExportFailure(write(directory, "export-relative.json",
+                exportRequest(Path.of("classes"), directory.resolve("cpp"),
+                        "all", null, null, 4)), "classSource path must be absolute");
+    }
+
+    private static void rejectsSymlinkedOutput(Path directory) throws Exception {
+        Path output = directory.resolve("output-link");
+        try {
+            Files.createSymbolicLink(output, directory.resolve("classes"));
+        }
+        catch (UnsupportedOperationException | IOException error) {
+            return;
+        }
+        expectExportFailure(write(directory, "export-symlink.json",
+                exportRequest(directory.resolve("classes"), output,
+                        "all", null, null, 4)), "must not be a symbolic link");
+    }
+
     private static String request(Path header, Path offsets, Path methods, String policy) {
         return "{\"schema\":1,\"operation\":\"import\",\"header\":" + quote(header) +
                 ",\"offsets\":" + quote(offsets) + ",\"methods\":" + quote(methods) +
                 ",\"layoutPolicy\":\"" + policy + "\"}";
+    }
+
+    private static String exportRequest(Path classes, Path output, String scope, Path rules,
+            Path seeds, int jobs) {
+        return "{\"schema\":1,\"operation\":\"export\",\"classSource\":" + quote(classes) +
+                ",\"output\":" + quote(output) + ",\"scope\":\"" + scope +
+                "\",\"frameworkRules\":" + quote(rules) + ",\"noreturnSeeds\":" +
+                quote(seeds) + ",\"decompileJobs\":" + jobs + "}";
     }
 
     private static String quote(Path path) {
@@ -128,6 +209,16 @@ public final class HeadlessRequestReaderTest {
     private static void expectFailure(Path path, String message) throws Exception {
         try {
             HeadlessRequestReader.readImport(path);
+            throw new AssertionError("expected failure containing: " + message);
+        }
+        catch (IOException error) {
+            check(error.getMessage().contains(message), "error message: " + error.getMessage());
+        }
+    }
+
+    private static void expectExportFailure(Path path, String message) throws Exception {
+        try {
+            HeadlessRequestReader.readExport(path);
             throw new AssertionError("expected failure containing: " + message);
         }
         catch (IOException error) {
