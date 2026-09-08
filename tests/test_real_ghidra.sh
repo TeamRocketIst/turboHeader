@@ -86,6 +86,7 @@ JAVA_TOOL_OPTIONS="${JAVA_TOOL_OPTIONS:+$JAVA_TOOL_OPTIONS }-Dapplication.settin
   -postScript VerifyGhidraFullHeaderStaticFields.java \
   -postScript VerifyTurboHeaderCallingConvention.java \
   -postScript VerifyTurboHeaderFunctionMatcher.java \
+  -postScript VerifyTurboHeaderExportPlanner.java \
   -deleteProject 2>&1 | tee "$LOG"
 
 grep -q 'TurboHeader real-Ghidra fixture verification passed' "$LOG"
@@ -95,5 +96,6 @@ grep -q 'TurboHeader class metadata verification passed' "$LOG"
 grep -q 'Ghidra full-header static-field verification passed' "$LOG"
 grep -q 'TurboHeader calling-convention verification passed' "$LOG"
 grep -q 'TurboHeader real-Ghidra function matcher verification passed' "$LOG"
+grep -q 'TurboHeader real-Ghidra export planner verification passed' "$LOG"
 grep -q 'REPORT: Import succeeded' "$LOG"
 printf 'real Ghidra headless tests passed\n'

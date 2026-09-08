@@ -41,10 +41,13 @@ javac --release 21 -cp "$BUILD/classes" -d "$BUILD/classes" \
   "$ROOT/src/main/java/turboheader/il2cpp/Il2CppClassCatalog.java" \
   "$ROOT/src/main/java/turboheader/il2cpp/Il2CppClassSelector.java" \
   "$ROOT/src/main/java/turboheader/il2cpp/Il2CppFunctionMatcher.java" \
+  "$ROOT/src/main/java/turboheader/il2cpp/Il2CppOutputPath.java" \
   "$ROOT/tests/java/turboheader/il2cpp/Il2CppClassCatalogTest.java" \
-  "$ROOT/tests/java/turboheader/il2cpp/Il2CppFunctionMatcherTest.java"
+  "$ROOT/tests/java/turboheader/il2cpp/Il2CppFunctionMatcherTest.java" \
+  "$ROOT/tests/java/turboheader/il2cpp/Il2CppOutputPathTest.java"
 java -cp "$BUILD/classes" turboheader.il2cpp.Il2CppClassCatalogTest
 java -cp "$BUILD/classes" turboheader.il2cpp.Il2CppFunctionMatcherTest
+java -cp "$BUILD/classes" turboheader.il2cpp.Il2CppOutputPathTest
 
 javac --release 21 -d "$BUILD/classes" \
   "$ROOT/src/main/java/turboheader/il2cpp/CFunctionSignatureParser.java" \
