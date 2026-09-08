@@ -97,6 +97,7 @@ JAVA_TOOL_OPTIONS="${JAVA_TOOL_OPTIONS:+$JAVA_TOOL_OPTIONS }-Dapplication.settin
   -postScript VerifyTurboHeaderExportPlanner.java \
   -postScript VerifyTurboHeaderFunctionPreparation.java \
   -postScript VerifyTurboHeaderDecompilationCoordinator.java \
+  -postScript VerifyTurboHeaderExportAnalysis.java \
   -postScript PlanIl2CppExport.java --request "$JAVA_EXPORT_REQUEST" \
   -deleteProject 2>&1 | tee "$LOG"
 
@@ -110,6 +111,7 @@ grep -q 'TurboHeader real-Ghidra function matcher verification passed' "$LOG"
 grep -q 'TurboHeader real-Ghidra export planner verification passed' "$LOG"
 grep -q 'TurboHeader real-Ghidra function preparation verification passed' "$LOG"
 grep -q 'TurboHeader real-Ghidra decompilation coordinator verification passed' "$LOG"
+grep -q 'TurboHeader real-Ghidra export analysis verification passed' "$LOG"
 grep -Eq 'TurboHeader export plan: discovered=1, selected=1, scanned=[0-9]+, matched=1, unmatched=0, ambiguous=0, assembly-resolved=0, assembly-mismatches=0, jobs=8\.' "$LOG"
 grep -q 'REPORT: Import succeeded' "$LOG"
 [[ ! -e "$EXPORT_OUTPUT" ]] || { printf 'plan-only script created export output\n' >&2; exit 1; }
