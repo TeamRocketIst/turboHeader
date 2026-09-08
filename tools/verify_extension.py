@@ -15,6 +15,7 @@ ROOT_FILES = {
     "README.md",
     "lib/turboheader-ghidra-il2cpp.jar",
     "ghidra_scripts/ImportIl2CppTypes.java",
+    "ghidra_scripts/PlanIl2CppExport.java",
     "ghidra_scripts/cpp2il_ghidra_export_editable.py",
 }
 PLATFORM_LIBRARIES = {

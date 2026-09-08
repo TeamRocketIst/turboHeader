@@ -32,12 +32,20 @@ fi
 JAVA_TEST_BINARY="$TEST_BINARY"
 REQUEST="$PROJECT_ROOT/import-request.json"
 JAVA_REQUEST="$REQUEST"
+EXPORT_REQUEST="$PROJECT_ROOT/export-request.json"
+JAVA_EXPORT_REQUEST="$EXPORT_REQUEST"
+EXPORT_OUTPUT="$PROJECT_ROOT/export-output"
+JAVA_EXPORT_OUTPUT="$EXPORT_OUTPUT"
 if command -v cygpath >/dev/null 2>&1; then
   JAVA_TEST_BINARY="$(cygpath -m "$TEST_BINARY")"
   JAVA_REQUEST="$(cygpath -m "$REQUEST")"
+  JAVA_EXPORT_REQUEST="$(cygpath -m "$EXPORT_REQUEST")"
+  JAVA_EXPORT_OUTPUT="$(cygpath -m "$EXPORT_OUTPUT")"
 fi
 python3 -c 'import json, pathlib, sys; pathlib.Path(sys.argv[1]).write_text(json.dumps({"schema": 1, "operation": "import", "header": sys.argv[2], "offsets": sys.argv[3], "methods": None, "layoutPolicy": "allow-inferred"}))' \
   "$REQUEST" "$JAVA_ROOT/tests/fixtures/sample.h" "$JAVA_ROOT/tests/fixtures/type_offsets.json"
+python3 -c 'import json, pathlib, sys; pathlib.Path(sys.argv[1]).write_text(json.dumps({"schema": 1, "operation": "export", "classSource": sys.argv[2], "output": sys.argv[3], "scope": "whitelist", "frameworkRules": None, "noreturnSeeds": None, "decompileJobs": 8}))' \
+  "$EXPORT_REQUEST" "$JAVA_ROOT/tests/fixtures/export_classes" "$JAVA_EXPORT_OUTPUT"
 EXTENSION_DIR="$GHIDRA_INSTALL_DIR/Ghidra/Extensions/turboheader-ghidra-il2cpp"
 EXTENSION_BACKUP="$PROJECT_ROOT/installed-extension-backup"
 restore_extension() {
@@ -87,6 +95,7 @@ JAVA_TOOL_OPTIONS="${JAVA_TOOL_OPTIONS:+$JAVA_TOOL_OPTIONS }-Dapplication.settin
   -postScript VerifyTurboHeaderCallingConvention.java \
   -postScript VerifyTurboHeaderFunctionMatcher.java \
   -postScript VerifyTurboHeaderExportPlanner.java \
+  -postScript PlanIl2CppExport.java --request "$JAVA_EXPORT_REQUEST" \
   -deleteProject 2>&1 | tee "$LOG"
 
 grep -q 'TurboHeader real-Ghidra fixture verification passed' "$LOG"
@@ -97,5 +106,7 @@ grep -q 'Ghidra full-header static-field verification passed' "$LOG"
 grep -q 'TurboHeader calling-convention verification passed' "$LOG"
 grep -q 'TurboHeader real-Ghidra function matcher verification passed' "$LOG"
 grep -q 'TurboHeader real-Ghidra export planner verification passed' "$LOG"
+grep -Eq 'TurboHeader export plan: discovered=1, selected=1, scanned=[0-9]+, matched=1, unmatched=0, ambiguous=0, assembly-resolved=0, assembly-mismatches=0, jobs=8\.' "$LOG"
 grep -q 'REPORT: Import succeeded' "$LOG"
+[[ ! -e "$EXPORT_OUTPUT" ]] || { printf 'plan-only script created export output\n' >&2; exit 1; }
 printf 'real Ghidra headless tests passed\n'
