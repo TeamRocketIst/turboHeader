@@ -218,7 +218,7 @@ public final class Il2CppClassSelector {
         return rules;
     }
 
-    private static String normalizeAssembly(String value) {
+    static String normalizeAssembly(String value) {
         String normalized = value.trim();
         if (normalized.toLowerCase(Locale.ROOT).endsWith(".dll")) {
             normalized = normalized.substring(0, normalized.length() - 4);
