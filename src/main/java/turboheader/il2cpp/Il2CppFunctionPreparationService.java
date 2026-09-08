@@ -136,6 +136,9 @@ public final class Il2CppFunctionPreparationService {
         public PreparedFunction {
             Objects.requireNonNull(displayFunction, "displayFunction");
             Objects.requireNonNull(decompileFunction, "decompileFunction");
+            if (!displayFunction.getEntryPoint().equals(decompileFunction.getEntryPoint())) {
+                throw new IllegalArgumentException("display and decompile functions differ");
+            }
         }
     }
 
