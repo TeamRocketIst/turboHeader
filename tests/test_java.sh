@@ -54,8 +54,11 @@ if [[ -n "${GHIDRA_INSTALL_DIR:-}" ]]; then
   GSON_JAR="$(find "$GHIDRA_INSTALL_DIR/Ghidra" -name 'gson-*.jar' -type f | head -n 1)"
   [[ -n "$GSON_JAR" ]] || { printf 'Gson jar not found under Ghidra\n' >&2; exit 1; }
   javac --release 21 -cp "$GSON_JAR:$BUILD/classes" -d "$BUILD/classes" \
+    "$ROOT/src/main/java/turboheader/il2cpp/HeadlessRequestReader.java" \
+    "$ROOT/tests/java/turboheader/il2cpp/HeadlessRequestReaderTest.java" \
     "$ROOT/src/main/java/turboheader/il2cpp/ScriptMethodReader.java" \
     "$ROOT/tests/java/turboheader/il2cpp/ScriptMethodReaderTest.java"
+  java -cp "$GSON_JAR:$BUILD/classes" turboheader.il2cpp.HeadlessRequestReaderTest
   java -cp "$GSON_JAR:$BUILD/classes" turboheader.il2cpp.ScriptMethodReaderTest \
     ${TURBOHEADER_SCRIPT_CORPUS:+"$TURBOHEADER_SCRIPT_CORPUS"}
 fi
