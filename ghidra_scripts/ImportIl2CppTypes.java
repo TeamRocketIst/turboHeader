@@ -6,6 +6,7 @@ import java.nio.file.Path;
 
 import ghidra.app.script.GhidraScript;
 import turboheader.il2cpp.GhidraTypeImporter;
+import turboheader.il2cpp.HeadlessRequestReader;
 import turboheader.il2cpp.ImportDiagnostics;
 import turboheader.il2cpp.NativeParser;
 import turboheader.il2cpp.TypeModel;
@@ -19,7 +20,11 @@ public class ImportIl2CppTypes extends GhidraScript {
         }
 
         String[] args = getScriptArgs();
-        if (args.length > 4) {
+        boolean requestMode = args.length > 0 && args[0].equals("--request");
+        if (requestMode && args.length != 2) {
+            throw new IllegalArgumentException("Expected: --request <import-request.json>");
+        }
+        if (!requestMode && args.length > 4) {
             throw new IllegalArgumentException(
                     "Expected: il2cpp.h [type_offsets.json|dump.cs|-] " +
                     "[script.json|-] [allow-inferred|require-external-offsets|" +
@@ -29,9 +34,16 @@ public class ImportIl2CppTypes extends GhidraScript {
         Path offsets = null;
         Path script = null;
         int pointerSize = currentProgram.getDefaultPointerSize();
-        var layoutPolicy = turboheader.il2cpp.GhidraTypeImporter.LayoutPolicy.ALLOW_INFERRED;
+        var layoutPolicy = GhidraTypeImporter.LayoutPolicy.ALLOW_INFERRED;
 
-        if (args.length > 0) {
+        if (requestMode) {
+            var request = HeadlessRequestReader.readImport(Path.of(args[1]));
+            header = request.header();
+            offsets = request.offsets();
+            script = request.methods();
+            layoutPolicy = layoutPolicy(request.layoutPolicy());
+        }
+        else if (args.length > 0) {
             header = Path.of(args[0]);
             if (args.length > 1 && !args[1].isBlank() && !args[1].equals("-")) {
                 offsets = Path.of(args[1]);
@@ -40,16 +52,7 @@ public class ImportIl2CppTypes extends GhidraScript {
                 script = Path.of(args[2]);
             }
             if (args.length > 3) {
-                layoutPolicy = switch (args[3]) {
-                    case "allow-inferred" ->
-                        turboheader.il2cpp.GhidraTypeImporter.LayoutPolicy.ALLOW_INFERRED;
-                    case "require-external-offsets" ->
-                        turboheader.il2cpp.GhidraTypeImporter.LayoutPolicy.REQUIRE_EXTERNAL_OFFSETS;
-                    case "require-authoritative" ->
-                        turboheader.il2cpp.GhidraTypeImporter.LayoutPolicy.REQUIRE_AUTHORITATIVE;
-                    default -> throw new IllegalArgumentException(
-                            "Unknown layout policy: " + args[3]);
-                };
+                layoutPolicy = layoutPolicy(args[3]);
             }
         }
         else {
@@ -258,5 +261,27 @@ public class ImportIl2CppTypes extends GhidraScript {
                         methodStats.failed(), methodStats.total()));
             }
         }
+    }
+
+    private static GhidraTypeImporter.LayoutPolicy layoutPolicy(String value) {
+        return switch (value) {
+            case "allow-inferred" -> GhidraTypeImporter.LayoutPolicy.ALLOW_INFERRED;
+            case "require-external-offsets" ->
+                GhidraTypeImporter.LayoutPolicy.REQUIRE_EXTERNAL_OFFSETS;
+            case "require-authoritative" ->
+                GhidraTypeImporter.LayoutPolicy.REQUIRE_AUTHORITATIVE;
+            default -> throw new IllegalArgumentException("Unknown layout policy: " + value);
+        };
+    }
+
+    private static GhidraTypeImporter.LayoutPolicy layoutPolicy(
+            HeadlessRequestReader.LayoutPolicy value) {
+        return switch (value) {
+            case ALLOW_INFERRED -> GhidraTypeImporter.LayoutPolicy.ALLOW_INFERRED;
+            case REQUIRE_EXTERNAL_OFFSETS ->
+                GhidraTypeImporter.LayoutPolicy.REQUIRE_EXTERNAL_OFFSETS;
+            case REQUIRE_AUTHORITATIVE ->
+                GhidraTypeImporter.LayoutPolicy.REQUIRE_AUTHORITATIVE;
+        };
     }
 }

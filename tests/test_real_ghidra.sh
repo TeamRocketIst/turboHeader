@@ -30,9 +30,14 @@ if [[ -z "$TEST_BINARY" ]]; then
   fi
 fi
 JAVA_TEST_BINARY="$TEST_BINARY"
+REQUEST="$PROJECT_ROOT/import-request.json"
+JAVA_REQUEST="$REQUEST"
 if command -v cygpath >/dev/null 2>&1; then
   JAVA_TEST_BINARY="$(cygpath -m "$TEST_BINARY")"
+  JAVA_REQUEST="$(cygpath -m "$REQUEST")"
 fi
+python3 -c 'import json, pathlib, sys; pathlib.Path(sys.argv[1]).write_text(json.dumps({"schema": 1, "operation": "import", "header": sys.argv[2], "offsets": sys.argv[3], "methods": None, "layoutPolicy": "allow-inferred"}))' \
+  "$REQUEST" "$JAVA_ROOT/tests/fixtures/sample.h" "$JAVA_ROOT/tests/fixtures/type_offsets.json"
 EXTENSION_DIR="$GHIDRA_INSTALL_DIR/Ghidra/Extensions/turboheader-ghidra-il2cpp"
 EXTENSION_BACKUP="$PROJECT_ROOT/installed-extension-backup"
 restore_extension() {
@@ -68,8 +73,7 @@ JAVA_TOOL_OPTIONS="${JAVA_TOOL_OPTIONS:+$JAVA_TOOL_OPTIONS }-Dapplication.settin
   bash "$HEADLESS" "$JAVA_PROJECT_ROOT" TurboHeaderFixture \
   -import "$JAVA_TEST_BINARY" -noanalysis \
   -scriptPath "$JAVA_ROOT/ghidra_scripts;$JAVA_ROOT/tests/ghidra_scripts" \
-  -postScript ImportIl2CppTypes.java \
-  "$JAVA_ROOT/tests/fixtures/sample.h" "$JAVA_ROOT/tests/fixtures/type_offsets.json" \
+  -postScript ImportIl2CppTypes.java --request "$JAVA_REQUEST" \
   -postScript VerifyTurboHeaderFixture.java \
   -postScript VerifyTurboHeaderTransactions.java \
   "$JAVA_ROOT/tests/fixtures/sample.h" "$JAVA_ROOT/tests/fixtures/type_offsets.json" 8 \
