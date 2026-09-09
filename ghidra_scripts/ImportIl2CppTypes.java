@@ -7,6 +7,7 @@ import java.nio.file.Path;
 import ghidra.app.script.GhidraScript;
 import turboheader.il2cpp.GhidraTypeImporter;
 import turboheader.il2cpp.HeadlessRequestReader;
+import turboheader.il2cpp.Il2CppMetadataImportService;
 import turboheader.il2cpp.ImportDiagnostics;
 import turboheader.il2cpp.NativeParser;
 import turboheader.il2cpp.TypeModel;
@@ -132,134 +133,8 @@ public class ImportIl2CppTypes extends GhidraScript {
         }
 
         if (script != null) {
-            System.out.println("TurboHeader: reading script metadata...");
-            var scriptData = turboheader.il2cpp.ScriptMethodReader.readAll(script);
-            System.out.println(String.format(
-                    "TurboHeader script: %,d strings, %,d metadata slots, %,d method slots, %,d methods.",
-                    scriptData.strings().size(), scriptData.metadata().size(),
-                    scriptData.metadataMethods().size(), scriptData.methods().size()));
-            var stringResult = new turboheader.il2cpp.GhidraStringImporter(currentProgram, monitor)
-                    .importStrings(scriptData.strings());
-            var stringStats = stringResult.stats();
-            println(String.format(
-                    "TurboHeader strings: %,d read, %,d labels created, %,d labels reused, " +
-                    "%,d comments created, %,d globals typed, %,d primary labels changed, " +
-                    "%,d failed in %.3f s.",
-                    stringStats.total(), stringStats.labelsCreated(), stringStats.labelsReused(),
-                    stringStats.commentsCreated(), stringStats.typed(),
-                    stringStats.primaryLabelsChanged(),
-                    stringStats.failed(), stringStats.elapsedSeconds()));
-            for (var failure : stringStats.failureCounts().entrySet()) {
-                printerr(String.format("TurboHeader strings: %,d %s", failure.getValue(),
-                        failure.getKey()));
-            }
-            for (String sample : stringStats.failureSamples()) {
-                printerr("TurboHeader string sample: " + sample);
-            }
-
-            var metadataResult = new turboheader.il2cpp.GhidraMetadataImporter(currentProgram, monitor)
-                    .importMetadata(scriptData.metadata());
-            var metadataStats = metadataResult.stats();
-            println(String.format(
-                    "TurboHeader metadata: %,d read, %,d labels created, %,d globals typed, " +
-                    "%,d failed in %.3f s.",
-                    metadataStats.total(), metadataStats.labelsCreated(), metadataStats.typed(),
-                    metadataStats.failed(), metadataStats.elapsedSeconds()));
-            for (var failure : metadataStats.failureCounts().entrySet()) {
-                printerr(String.format("TurboHeader metadata: %,d %s", failure.getValue(),
-                        failure.getKey()));
-            }
-            for (String sample : metadataStats.failureSamples()) {
-                printerr("TurboHeader metadata sample: " + sample);
-            }
-
-            var methodMetadataResult =
-                    new turboheader.il2cpp.GhidraMethodMetadataImporter(currentProgram, monitor)
-                            .importMethods(scriptData.metadataMethods());
-            var methodMetadataStats = methodMetadataResult.stats();
-            println(String.format(
-                    "TurboHeader method metadata: %,d read, %,d labels created, %,d reused, " +
-                    "%,d comments created, %,d globals typed, %,d failed in %.3f s.",
-                    methodMetadataStats.total(), methodMetadataStats.labelsCreated(),
-                    methodMetadataStats.labelsReused(), methodMetadataStats.commentsCreated(),
-                    methodMetadataStats.typed(), methodMetadataStats.failed(),
-                    methodMetadataStats.elapsedSeconds()));
-            for (var failure : methodMetadataStats.failureCounts().entrySet()) {
-                printerr(String.format("TurboHeader method metadata: %,d %s",
-                        failure.getValue(), failure.getKey()));
-            }
-            for (String sample : methodMetadataStats.failureSamples()) {
-                printerr("TurboHeader method metadata sample: " + sample);
-            }
-
-            var relocationTargets = new java.util.HashMap<>(
-                    metadataResult.relocationTargets());
-            for (var target : stringResult.relocationTargets().entrySet()) {
-                if (relocationTargets.put(target.getKey(), target.getValue()) != null) {
-                    throw new IllegalStateException(
-                            "ScriptString and ScriptMetadata share address " + target.getKey());
-                }
-            }
-            for (var target : methodMetadataResult.relocationTargets().entrySet()) {
-                if (relocationTargets.put(target.getKey(), target.getValue()) != null) {
-                    throw new IllegalStateException(
-                            "ScriptMetadataMethod shares address " + target.getKey());
-                }
-            }
-            var relocationStats = new turboheader.il2cpp.GhidraRelocationImporter(
-                    currentProgram, monitor).importRelocations(relocationTargets);
-            println(String.format(
-                    "TurboHeader relocations: %,d scanned once, %,d matched, %,d slots typed, " +
-                    "%,d string labels created, %,d reused, %,d comments created, " +
-                    "%,d method labels created, %,d reused, %,d comments created, " +
-                    "%,d failed in %.3f s.",
-                    relocationStats.relocationsScanned(), relocationStats.slotsMatched(),
-                    relocationStats.slotsTyped(), relocationStats.stringLabelsCreated(),
-                    relocationStats.stringLabelsReused(),
-                    relocationStats.stringCommentsCreated(),
-                    relocationStats.methodLabelsCreated(),
-                    relocationStats.methodLabelsReused(),
-                    relocationStats.methodCommentsCreated(), relocationStats.failed(),
-                    relocationStats.elapsedSeconds()));
-            for (var failure : relocationStats.failureCounts().entrySet()) {
-                printerr(String.format("TurboHeader relocations: %,d %s", failure.getValue(),
-                        failure.getKey()));
-            }
-            for (String sample : relocationStats.failureSamples()) {
-                printerr("TurboHeader relocation sample: " + sample);
-            }
-
-            var methods = scriptData.methods();
-            var methodStats = new turboheader.il2cpp.GhidraMethodImporter(currentProgram, monitor)
-                    .importMethods(methods);
-            println(String.format(
-                    "TurboHeader methods: %,d read, %,d applied, %,d functions created, %,d failed in %.3f s " +
-                    "(%,d duplicate names repaired, %,d specialized MethodInfo pointers canonicalized, " +
-                    "%,d opaque pointer types, %,d assembly identities).",
-                    methodStats.total(), methodStats.applied(), methodStats.functionsCreated(),
-                    methodStats.failed(), methodStats.elapsedSeconds(),
-                    methodStats.duplicateNamesRepaired(), methodStats.specializedMethodInfoPointers(),
-                    methodStats.opaquePointerTypes(), methodStats.assemblyIdentities()));
-            for (var failure : methodStats.failureCounts().entrySet()) {
-                printerr(String.format("TurboHeader methods: %,d %s", failure.getValue(), failure.getKey()));
-            }
-            for (String sample : methodStats.failureSamples()) {
-                printerr("TurboHeader method sample: " + sample);
-            }
-            if (stringStats.failed() != 0 || metadataStats.failed() != 0 ||
-                    methodMetadataStats.failed() != 0 ||
-                    relocationStats.failed() != 0 ||
-                    methodStats.failed() != 0) {
-                throw new IllegalStateException(String.format(
-                        "TurboHeader did not apply %,d of %,d strings, %,d of %,d metadata slots, " +
-                        "%,d of %,d method metadata entries, %,d relocation slots, and %,d of %,d " +
-                        "method signatures",
-                        stringStats.failed(), stringStats.total(),
-                        metadataStats.failed(), metadataStats.total(),
-                        methodMetadataStats.failed(), methodMetadataStats.total(),
-                        relocationStats.failed(),
-                        methodStats.failed(), methodStats.total()));
-            }
+            new Il2CppMetadataImportService(currentProgram, monitor, this::println, this::printerr)
+                    .importScript(script);
         }
     }
 
