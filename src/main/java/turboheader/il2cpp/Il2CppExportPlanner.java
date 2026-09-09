@@ -69,8 +69,13 @@ public final class Il2CppExportPlanner {
             Objects.requireNonNull(classEntry, "classEntry");
             Objects.requireNonNull(relativeOutput, "relativeOutput");
             functions = List.copyOf(functions);
-            if (relativeOutput.isAbsolute()) {
-                throw new IllegalArgumentException("class output path must be relative");
+            if (relativeOutput.isAbsolute() ||
+                    !relativeOutput.normalize().equals(relativeOutput) ||
+                    relativeOutput.startsWith(Path.of("..")) ||
+                    relativeOutput.getFileName() == null ||
+                    relativeOutput.getFileName().toString().isEmpty()) {
+                throw new IllegalArgumentException(
+                        "class output path must be normalized and relative");
             }
         }
     }
