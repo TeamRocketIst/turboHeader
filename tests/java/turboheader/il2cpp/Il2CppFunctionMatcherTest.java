@@ -14,6 +14,9 @@ public final class Il2CppFunctionMatcherTest {
         ambiguityIsReported();
         tokenBoundariesPreventSubstringMatches();
         punctuationIsNormalized();
+        exactCaseResolvesDistinctClasses();
+        caseInsensitiveFallbackPreservesCompatibility();
+        caseInsensitiveFallbackRemainsAmbiguous();
         functionsAreOrderedByUnsignedAddress();
         System.out.println("IL2CPP function matcher tests passed");
     }
@@ -84,10 +87,45 @@ public final class Il2CppFunctionMatcherTest {
                 "symbol normalization");
     }
 
+    private static void exactCaseResolvesDistinctClasses() {
+        var upper = entry("Game", "U.cs");
+        var lower = entry("Game", "u.cs");
+        var upperFunction = function(40, "U__Start");
+        var lowerFunction = function(44, "u__Stop");
+
+        var result = Il2CppFunctionMatcher.match(
+                List.of(upper, lower), List.of(lowerFunction, upperFunction));
+        check(result.functionsByClass().get(upper).equals(List.of(upperFunction)),
+                "uppercase class selected");
+        check(result.functionsByClass().get(lower).equals(List.of(lowerFunction)),
+                "lowercase class selected");
+        check(result.ambiguities().isEmpty(), "exact-case matches are unambiguous");
+    }
+
+    private static void caseInsensitiveFallbackPreservesCompatibility() {
+        var entry = entry("Game", "PlayerController.cs");
+        var function = function(48, "playercontroller__Update");
+
+        var result = Il2CppFunctionMatcher.match(List.of(entry), List.of(function));
+        check(result.functionsByClass().get(entry).equals(List.of(function)),
+                "case-insensitive fallback matched");
+    }
+
+    private static void caseInsensitiveFallbackRemainsAmbiguous() {
+        var titleCase = entry("Game", "Actor.cs");
+        var lowerCase = entry("Game", "actor.cs");
+        var function = function(52, "ACTOR__Update");
+
+        var result = Il2CppFunctionMatcher.match(
+                List.of(titleCase, lowerCase), List.of(function));
+        check(result.matchedFunctions() == 0, "ambiguous fallback skipped");
+        check(result.ambiguities().size() == 1, "fallback ambiguity recorded");
+    }
+
     private static void functionsAreOrderedByUnsignedAddress() {
         var entry = entry("Game", "Actor.cs");
-        var later = function(48, "Actor__Late");
-        var earlier = function(40, "Actor__Early");
+        var later = function(64, "Actor__Late");
+        var earlier = function(56, "Actor__Early");
         var result = Il2CppFunctionMatcher.match(List.of(entry), List.of(later, earlier));
 
         check(result.functionsByClass().get(entry).equals(List.of(earlier, later)),

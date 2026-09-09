@@ -79,13 +79,17 @@ public final class Il2CppFunctionMatcher {
     }
 
     static String normalizeSymbol(String value) {
+        return normalizeSymbol(value, true);
+    }
+
+    private static String normalizeSymbol(String value, boolean foldCase) {
         StringBuilder normalized = new StringBuilder();
         boolean separator = false;
         for (int index = 0; index < value.length();) {
             int codePoint = value.codePointAt(index);
             index += Character.charCount(codePoint);
             if (Character.isLetterOrDigit(codePoint)) {
-                normalized.appendCodePoint(Character.toLowerCase(codePoint));
+                normalized.appendCodePoint(foldCase ? Character.toLowerCase(codePoint) : codePoint);
                 separator = false;
             }
             else if (!separator && !normalized.isEmpty()) {
@@ -130,31 +134,41 @@ public final class Il2CppFunctionMatcher {
     private record CandidateMatch(String key, List<Il2CppClassCatalog.ClassEntry> classes) {
     }
 
-    private record CandidateIndex(Map<String, Candidate> candidates, int maximumTokens) {
+    private record CandidateIndex(Map<String, Candidate> exactCandidates,
+            Map<String, Candidate> foldedCandidates, int maximumTokens) {
         static CandidateIndex create(List<Il2CppClassCatalog.ClassEntry> classes) {
-            Map<String, LinkedHashSet<Il2CppClassCatalog.ClassEntry>> builders =
+            Map<String, LinkedHashSet<Il2CppClassCatalog.ClassEntry>> exactBuilders =
+                    new LinkedHashMap<>();
+            Map<String, LinkedHashSet<Il2CppClassCatalog.ClassEntry>> foldedBuilders =
                     new LinkedHashMap<>();
             int maximumTokens = 1;
             for (var entry : classes) {
                 for (String rawName : entry.candidateNames()) {
-                    String normalized = normalizeSymbol(rawName);
-                    if (normalized.isEmpty()) {
+                    String exact = normalizeSymbol(rawName, false);
+                    if (exact.isEmpty()) {
                         continue;
                     }
-                    int tokens = tokenCount(normalized);
+                    String folded = normalizeSymbol(rawName, true);
+                    int tokens = tokenCount(exact);
                     maximumTokens = Math.max(maximumTokens, tokens);
-                    builders.computeIfAbsent(normalized, unused -> new LinkedHashSet<>())
+                    exactBuilders.computeIfAbsent(exact, unused -> new LinkedHashSet<>())
+                            .add(entry);
+                    foldedBuilders.computeIfAbsent(folded, unused -> new LinkedHashSet<>())
                             .add(entry);
                 }
             }
 
-            Map<String, Candidate> candidates = new LinkedHashMap<>();
-            builders.forEach((name, entries) ->
-                    candidates.put(name, new Candidate(List.copyOf(entries))));
-            return new CandidateIndex(Collections.unmodifiableMap(candidates), maximumTokens);
+            return new CandidateIndex(buildCandidates(exactBuilders),
+                    buildCandidates(foldedBuilders), maximumTokens);
         }
 
         CandidateMatch find(FunctionIdentity function) {
+            CandidateMatch exact = find(function, exactCandidates, false);
+            return exact != null ? exact : find(function, foldedCandidates, true);
+        }
+
+        private CandidateMatch find(FunctionIdentity function,
+                Map<String, Candidate> candidates, boolean foldCase) {
             List<String> names = new ArrayList<>();
             names.add(function.fullName());
             if (!function.simpleName().equals(function.fullName())) {
@@ -165,7 +179,7 @@ public final class Il2CppFunctionMatcher {
             String bestKey = null;
             int bestTokens = -1;
             for (String rawName : names) {
-                String normalized = normalizeSymbol(rawName);
+                String normalized = normalizeSymbol(rawName, foldCase);
                 if (normalized.isEmpty()) {
                     continue;
                 }
@@ -183,6 +197,14 @@ public final class Il2CppFunctionMatcher {
                 }
             }
             return best == null ? null : new CandidateMatch(bestKey, best.classes());
+        }
+
+        private static Map<String, Candidate> buildCandidates(
+                Map<String, LinkedHashSet<Il2CppClassCatalog.ClassEntry>> builders) {
+            Map<String, Candidate> candidates = new LinkedHashMap<>();
+            builders.forEach((name, entries) ->
+                    candidates.put(name, new Candidate(List.copyOf(entries))));
+            return Collections.unmodifiableMap(candidates);
         }
 
         private static int tokenCount(String value) {
