@@ -1,10 +1,15 @@
 package turboheader.il2cpp;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.text.Normalizer;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
+import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -14,6 +19,7 @@ import java.util.Set;
 
 public final class Il2CppOutputPath {
     private static final String INVALID_FILENAME_CHARS = "<>:\"\\|?*";
+    private static final int SUFFIX_BYTES = 8;
     private static final Set<String> WINDOWS_RESERVED_NAMES = Set.of(
             "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5",
             "COM6", "COM7", "COM8", "COM9", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5",
@@ -46,20 +52,66 @@ public final class Il2CppOutputPath {
     public static Map<Il2CppClassCatalog.ClassEntry, Path> forClasses(
             List<Il2CppClassCatalog.ClassEntry> classes) throws IOException {
         Objects.requireNonNull(classes, "classes");
-        Map<Il2CppClassCatalog.ClassEntry, Path> outputs = new LinkedHashMap<>();
-        Map<String, Il2CppClassCatalog.ClassEntry> collisionKeys = new LinkedHashMap<>();
+        List<PathCandidate> candidates = new ArrayList<>(classes.size());
+        Map<String, List<PathCandidate>> groups = new LinkedHashMap<>();
+        Set<ClassIdentity> identities = new HashSet<>();
         for (var entry : classes) {
+            ClassIdentity identity = new ClassIdentity(entry.assembly(), entry.relativeSource());
+            if (!identities.add(identity)) {
+                throw new IOException("duplicate class identity: " + entry.displayName());
+            }
             Path output = forClass(entry);
-            String key = Normalizer.normalize(portable(output), Normalizer.Form.NFC)
-                    .toLowerCase(Locale.ROOT);
-            var previous = collisionKeys.putIfAbsent(key, entry);
+            PathCandidate candidate = new PathCandidate(entry, output);
+            candidates.add(candidate);
+            groups.computeIfAbsent(collisionKey(output), unused -> new ArrayList<>())
+                    .add(candidate);
+        }
+
+        Map<Il2CppClassCatalog.ClassEntry, Path> outputs = new LinkedHashMap<>();
+        Map<String, Il2CppClassCatalog.ClassEntry> finalKeys = new LinkedHashMap<>();
+        for (PathCandidate candidate : candidates) {
+            List<PathCandidate> group = groups.get(collisionKey(candidate.path()));
+            Path output = group.size() == 1
+                    ? candidate.path()
+                    : appendSuffix(candidate.path(), stableSuffix(candidate.entry()));
+            var previous = finalKeys.putIfAbsent(collisionKey(output), candidate.entry());
             if (previous != null) {
                 throw new IOException("class output path collision: " + previous.displayName() +
-                        " and " + entry.displayName());
+                        " and " + candidate.entry().displayName());
             }
-            outputs.put(entry, output);
+            outputs.put(candidate.entry(), output);
         }
         return Collections.unmodifiableMap(outputs);
+    }
+
+    private static Path appendSuffix(Path path, String suffix) {
+        String fileName = path.getFileName().toString();
+        int extension = fileName.lastIndexOf('.');
+        if (extension <= 0) {
+            throw new IllegalArgumentException("class output path has no extension");
+        }
+        String resolved = fileName.substring(0, extension) + "__" + suffix +
+                fileName.substring(extension);
+        Path parent = path.getParent();
+        return parent == null ? Path.of(resolved) : parent.resolve(resolved);
+    }
+
+    private static String stableSuffix(Il2CppClassCatalog.ClassEntry entry) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            digest.update(entry.assembly().getBytes(StandardCharsets.UTF_8));
+            digest.update((byte) 0);
+            byte[] value = digest.digest(entry.relativeSource().getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(value, 0, SUFFIX_BYTES);
+        }
+        catch (NoSuchAlgorithmException error) {
+            throw new IllegalStateException("SHA-256 is unavailable", error);
+        }
+    }
+
+    private static String collisionKey(Path path) {
+        return Normalizer.normalize(portable(path), Normalizer.Form.NFC)
+                .toLowerCase(Locale.ROOT);
     }
 
     static String sanitize(String value) {
@@ -96,5 +148,11 @@ public final class Il2CppOutputPath {
 
     private static String portable(Path path) {
         return path.toString().replace('\\', '/');
+    }
+
+    private record PathCandidate(Il2CppClassCatalog.ClassEntry entry, Path path) {
+    }
+
+    private record ClassIdentity(String assembly, String relativeSource) {
     }
 }
