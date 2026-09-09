@@ -100,6 +100,7 @@ JAVA_TOOL_OPTIONS="${JAVA_TOOL_OPTIONS:+$JAVA_TOOL_OPTIONS }-Dapplication.settin
   -postScript VerifyTurboHeaderExportAnalysis.java \
   -postScript VerifyTurboHeaderExportWriter.java \
   -postScript PlanIl2CppExport.java --request "$JAVA_EXPORT_REQUEST" \
+  -postScript ExportIl2Cpp.java --request "$JAVA_EXPORT_REQUEST" \
   -deleteProject 2>&1 | tee "$LOG"
 
 grep -q 'TurboHeader real-Ghidra fixture verification passed' "$LOG"
@@ -115,6 +116,12 @@ grep -q 'TurboHeader real-Ghidra decompilation coordinator verification passed' 
 grep -q 'TurboHeader real-Ghidra export analysis verification passed' "$LOG"
 grep -q 'TurboHeader real-Ghidra export writer verification passed' "$LOG"
 grep -Eq 'TurboHeader export plan: discovered=1, selected=1, scanned=[0-9]+, matched=1, unmatched=0, ambiguous=0, assembly-resolved=0, assembly-mismatches=0, jobs=8\.' "$LOG"
+grep -Eq 'TurboHeader export complete: classes=1, functions=1, failed=0\.' "$LOG"
+grep -Eq 'TurboHeader phase timing: scan=[0-9.]+s, analysis=[0-9.]+s, prepare=[0-9.]+s, decompile=[0-9.]+s, writes=[0-9.]+s, total=[0-9.]+s\.' "$LOG"
 grep -q 'REPORT: Import succeeded' "$LOG"
-[[ ! -e "$EXPORT_OUTPUT" ]] || { printf 'plan-only script created export output\n' >&2; exit 1; }
+[[ -s "$EXPORT_OUTPUT/Fixture.Two/TurboHeaderPlanFixture.cpp" ]] || {
+  printf 'complete Java export did not write the fixture class\n' >&2
+  exit 1
+}
+grep -q 'Functions matched/exported: 1' "$EXPORT_OUTPUT/_export_summary.txt"
 printf 'real Ghidra headless tests passed\n'
