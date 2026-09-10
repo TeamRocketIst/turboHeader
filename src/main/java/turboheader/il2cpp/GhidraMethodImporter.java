@@ -270,7 +270,23 @@ public final class GhidraMethodImporter {
         if (primitive != null && shouldPreserveAlias(name)) {
             return createAlias(name, primitive);
         }
-        return primitive;
+        return primitive != null ? primitive : findUniqueNamedType(name);
+    }
+
+    private DataType findUniqueNamedType(String name) {
+        List<DataType> matches = new ArrayList<>();
+        dtm.findDataTypes(name, matches);
+        DataType result = null;
+        for (DataType candidate : matches) {
+            if (!candidate.getName().equals(name)) {
+                continue;
+            }
+            if (result != null && result != candidate) {
+                return null;
+            }
+            result = candidate;
+        }
+        return result;
     }
 
     private DataType createAlias(String name, DataType base) {

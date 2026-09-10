@@ -20,6 +20,8 @@ javac --release 21 -d "$BUILD/classes" \
   "$ROOT/tests/java/turboheader/il2cpp/Il2CppHelperProofPolicyTest.java" \
   "$ROOT/src/main/java/turboheader/il2cpp/ImportDiagnostics.java" \
   "$ROOT/tests/java/turboheader/il2cpp/ImportDiagnosticsTest.java" \
+  "$ROOT/src/main/java/turboheader/il2cpp/CParserHeaderAdapter.java" \
+  "$ROOT/tests/java/turboheader/il2cpp/CParserHeaderAdapterTest.java" \
   "$ROOT/src/main/java/turboheader/il2cpp/MethodAssemblyIdentity.java" \
   "$ROOT/tests/java/turboheader/il2cpp/MethodAssemblyIdentityTest.java" \
   "$ROOT/src/main/java/turboheader/il2cpp/TypeModel.java" \
@@ -30,6 +32,7 @@ javac --release 21 -d "$BUILD/classes" \
   "$ROOT/tests/java/turboheader/il2cpp/CoreSmokeTest.java" \
   "$ROOT/tests/java/turboheader/il2cpp/JniSmokeTest.java"
 java -cp "$BUILD/classes" turboheader.il2cpp.ImportDiagnosticsTest
+java -cp "$BUILD/classes" turboheader.il2cpp.CParserHeaderAdapterTest
 java -cp "$BUILD/classes" turboheader.il2cpp.MethodAssemblyIdentityTest
 java -cp "$BUILD/classes" turboheader.il2cpp.Il2CppStringLabelsTest
 java -cp "$BUILD/classes" turboheader.il2cpp.Il2CppMethodMetadataLabelsTest
