@@ -50,6 +50,8 @@ def main() -> None:
         "mac_aarch64",
         "win_x86_64",
         "ubuntu-24.04-arm",
+        "ghidra_platform: linux_arm_64",
+        "ghidra_platform: mac_arm_64",
         "macos-15-intel",
         "macos-15",
         "container: ubuntu:22.04",
@@ -57,6 +59,11 @@ def main() -> None:
         "build-essential",
         "ninja-build",
         "cmake -S native -B build/native -G Ninja",
+        "Build Ghidra Linux ARM64 decompiler",
+        "if: matrix.target.platform == 'linux_aarch64'",
+        "./gradlew --no-daemon :Decompiler:buildNatives",
+        "Ghidra/Features/Decompiler/build/os/linux_arm_64",
+        "Ghidra Linux ARM64 tool was not built",
         "--glibc-max 2.35",
         "tools/verify_native.py",
         "sha256sum *.zip > SHA256SUMS",
@@ -76,7 +83,7 @@ def main() -> None:
     if missing:
         raise AssertionError(f"release workflow is missing invariants: {missing}")
 
-    if text.count("platform:") != 5:
+    if text.count("          - platform:") != 5:
         raise AssertionError("release workflow must define exactly five native platforms")
     if 'releases/tags/$release_tag" 2>/dev/null || true' in text:
         raise AssertionError("a missing aggregate release must not leave an API error body to parse")
@@ -105,6 +112,8 @@ def main() -> None:
         raise AssertionError("every platform build must isolate its headless test files")
     if text.count('chmod +x "$ghidra_dir/support/analyzeHeadless" "$ghidra_dir/support/launch.sh"') != 2:
         raise AssertionError("every Ghidra extraction must restore launcher permissions")
+    if text.count("./gradlew --no-daemon :Decompiler:buildNatives") != 1:
+        raise AssertionError("only the Linux ARM64 job may build Ghidra's native decompiler")
 
     publish = text.split("\n  publish:", 1)[1]
     checkout = publish.find("- uses: actions/checkout@v6")
