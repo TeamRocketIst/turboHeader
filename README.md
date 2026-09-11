@@ -41,7 +41,8 @@ unzip "$TURBOHEADER_ZIP" -d "$GHIDRA_INSTALL_DIR/Ghidra/Extensions"
 
 Linux archives end in `linux_x86_64` or `linux_aarch64`. macOS archives end in `mac_x86_64` or `mac_aarch64`.
 
-The official Ghidra archive does not include Linux ARM64 native tools. Build them once after extracting Ghidra:
+Some official Ghidra archives omit native tools for macOS or Linux ARM64. If `decompile` is missing for your
+platform, build Ghidra's native components once after extracting it:
 
 ```sh
 cd "$GHIDRA_INSTALL_DIR/support/gradle"

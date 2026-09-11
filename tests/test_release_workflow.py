@@ -59,11 +59,11 @@ def main() -> None:
         "build-essential",
         "ninja-build",
         "cmake -S native -B build/native -G Ninja",
-        "Build Ghidra Linux ARM64 decompiler",
-        "if: matrix.target.platform == 'linux_aarch64'",
+        "Prepare Ghidra native decompiler",
+        "if: runner.os != 'Windows'",
         "./gradlew --no-daemon :Decompiler:buildNatives",
-        "Ghidra/Features/Decompiler/build/os/linux_arm_64",
-        "Ghidra Linux ARM64 tool was not built",
+        "Ghidra/Features/Decompiler/build/os/$GHIDRA_PLATFORM",
+        "Ghidra tool was not built",
         "--glibc-max 2.35",
         "tools/verify_native.py",
         "sha256sum *.zip > SHA256SUMS",
@@ -112,8 +112,10 @@ def main() -> None:
         raise AssertionError("every platform build must isolate its headless test files")
     if text.count('chmod +x "$ghidra_dir/support/analyzeHeadless" "$ghidra_dir/support/launch.sh"') != 2:
         raise AssertionError("every Ghidra extraction must restore launcher permissions")
-    if text.count("./gradlew --no-daemon :Decompiler:buildNatives") != 1:
-        raise AssertionError("only the Linux ARM64 job may build Ghidra's native decompiler")
+    if text.count("./gradlew --no-daemon :Decompiler:buildNatives") != 2:
+        raise AssertionError("every Unix build job must provide the Ghidra decompiler fallback")
+    if text.count("Using prebuilt Ghidra tools for $GHIDRA_PLATFORM.") != 2:
+        raise AssertionError("every Unix build job must prefer Ghidra's prebuilt tools")
 
     publish = text.split("\n  publish:", 1)[1]
     checkout = publish.find("- uses: actions/checkout@v6")

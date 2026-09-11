@@ -232,20 +232,39 @@ jobs:
           [[ "$(find "$download_dir/ghidra-dist" -mindepth 1 -maxdepth 1 -type d | wc -l)" -eq 1 ]]
           [[ -f "$ghidra_dir/support/buildExtension.gradle" ]]
           chmod +x "$ghidra_dir/support/analyzeHeadless" "$ghidra_dir/support/launch.sh"
-          suffix=
-          [[ "$RUNNER_OS" == "Windows" ]] && suffix=.exe
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            for tool in decompile.exe sleigh.exe; do
+              path="$ghidra_dir/Ghidra/Features/Decompiler/os/$GHIDRA_PLATFORM/$tool"
+              [[ -f "$path" ]] || {
+                echo "Ghidra tool is missing: $path" >&2
+                exit 1
+              }
+            done
+          fi
+          echo "GHIDRA_INSTALL_DIR=$(cd "$ghidra_dir" && pwd)" >>"$GITHUB_ENV"
+      - name: Prepare Ghidra native decompiler
+        if: runner.os != 'Windows'
+        env:
+          GHIDRA_PLATFORM: ${{ matrix.target.ghidra_platform }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          prebuilt="$GHIDRA_INSTALL_DIR/Ghidra/Features/Decompiler/os/$GHIDRA_PLATFORM"
+          if [[ -x "$prebuilt/decompile" && -x "$prebuilt/sleigh" ]]; then
+            echo "Using prebuilt Ghidra tools for $GHIDRA_PLATFORM."
+            exit 0
+          fi
+          (
+            cd "$GHIDRA_INSTALL_DIR/support/gradle"
+            ./gradlew --no-daemon :Decompiler:buildNatives
+          )
+          built="$GHIDRA_INSTALL_DIR/Ghidra/Features/Decompiler/build/os/$GHIDRA_PLATFORM"
           for tool in decompile sleigh; do
-            path="$ghidra_dir/Ghidra/Features/Decompiler/os/$GHIDRA_PLATFORM/$tool$suffix"
-            [[ -f "$path" ]] || {
-              echo "Ghidra tool is missing: $path" >&2
-              exit 1
-            }
-            [[ "$RUNNER_OS" == "Windows" || -x "$path" ]] || {
-              echo "Ghidra tool is not executable: $path" >&2
+            [[ -x "$built/$tool" ]] || {
+              echo "Ghidra tool was not built: $built/$tool" >&2
               exit 1
             }
           done
-          echo "GHIDRA_INSTALL_DIR=$(cd "$ghidra_dir" && pwd)" >>"$GITHUB_ENV"
       - name: Build and verify native target
         env:
           PLATFORM: ${{ matrix.target.platform }}
@@ -344,8 +363,6 @@ jobs:
         env:
           GHIDRA_URL: ${{ matrix.ghidra.url }}
           GHIDRA_DIGEST: ${{ matrix.ghidra.digest }}
-          GHIDRA_PLATFORM: ${{ matrix.target.ghidra_platform }}
-          PLATFORM: ${{ matrix.target.platform }}
         run: |
           set -euo pipefail
           download_dir="$RUNNER_TEMP/turboheader-ghidra"
@@ -371,28 +388,25 @@ jobs:
           [[ "$(find "$download_dir/ghidra-dist" -mindepth 1 -maxdepth 1 -type d | wc -l)" -eq 1 ]]
           [[ -f "$ghidra_dir/support/buildExtension.gradle" ]]
           chmod +x "$ghidra_dir/support/analyzeHeadless" "$ghidra_dir/support/launch.sh"
-          if [[ "$PLATFORM" == "linux_x86_64" ]]; then
-            for tool in decompile sleigh; do
-              path="$ghidra_dir/Ghidra/Features/Decompiler/os/$GHIDRA_PLATFORM/$tool"
-              [[ -x "$path" ]] || {
-                echo "Ghidra tool is missing or not executable: $path" >&2
-                exit 1
-              }
-            done
-          fi
           echo "GHIDRA_INSTALL_DIR=$(cd "$ghidra_dir" && pwd)" >>"$GITHUB_ENV"
-      - name: Build Ghidra Linux ARM64 decompiler
-        if: matrix.target.platform == 'linux_aarch64'
+      - name: Prepare Ghidra native decompiler
+        env:
+          GHIDRA_PLATFORM: ${{ matrix.target.ghidra_platform }}
         run: |
           set -euo pipefail
+          prebuilt="$GHIDRA_INSTALL_DIR/Ghidra/Features/Decompiler/os/$GHIDRA_PLATFORM"
+          if [[ -x "$prebuilt/decompile" && -x "$prebuilt/sleigh" ]]; then
+            echo "Using prebuilt Ghidra tools for $GHIDRA_PLATFORM."
+            exit 0
+          fi
           (
             cd "$GHIDRA_INSTALL_DIR/support/gradle"
             ./gradlew --no-daemon :Decompiler:buildNatives
           )
-          native_dir="$GHIDRA_INSTALL_DIR/Ghidra/Features/Decompiler/build/os/linux_arm_64"
+          built="$GHIDRA_INSTALL_DIR/Ghidra/Features/Decompiler/build/os/$GHIDRA_PLATFORM"
           for tool in decompile sleigh; do
-            [[ -x "$native_dir/$tool" ]] || {
-              echo "Ghidra Linux ARM64 tool was not built: $native_dir/$tool" >&2
+            [[ -x "$built/$tool" ]] || {
+              echo "Ghidra tool was not built: $built/$tool" >&2
               exit 1
             }
           done
