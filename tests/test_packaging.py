@@ -105,7 +105,6 @@ def write_extension(path: Path, extra: Optional[object] = None):
         "ghidra_scripts/ImportIl2CppTypes.java",
         "ghidra_scripts/ExportIl2Cpp.java",
         "ghidra_scripts/PlanIl2CppExport.java",
-        "ghidra_scripts/cpp2il_ghidra_export_editable.py",
         "os/linux_x86_64/libturboheader_il2cpp.so",
     ]
     if extra:

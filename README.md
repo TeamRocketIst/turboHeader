@@ -2,12 +2,8 @@
 
 turboHeader imports IL2CPP types and method signatures into Ghidra, then exports selected classes as decompiled C++.
 
-After installing TurboHeader, use the [il2cpp-ghidrah wrapper](https://github.com/TeamRocketIst/il2cpp-ghidrah) for an end-to-end command-line workflow.
-
-The workflow has two steps, in this order:
-
-1. Import the IL2CPP data into a Ghidra project.
-2. Run the exporter using that same project.
+After installing TurboHeader, use the
+[il2cpp-ghidrah wrapper](https://github.com/TeamRocketIst/il2cpp-ghidrah) for the end-to-end command-line workflow. It runs the import and export as separate `analyzeHeadless` processes using Java entry points and validated request manifests.
 
 ## Requirements
 
@@ -72,54 +68,30 @@ inferred from `il2cpp.h` and may be less accurate.
 
 The pointer size is detected automatically from the `libil2cpp.so` program imported by Ghidra.
 
-## 1. Import
+## Run
 
-Run this first:
-
-```sh
-$GHIDRA_INSTALL_DIR/support/analyzeHeadless \
-  projects game \
-  -import /path/to/libil2cpp.so \
-  -noanalysis \
-  -postScript ImportIl2CppTypes.java \
-  /path/to/il2cpp.h \
-  /path/to/dump.cs \
-  /path/to/script.json \
-  require-external-offsets
-```
-
-This example uses `il2cpp.h`, `dump.cs`, and `script.json` produced by Il2CppDumper. The
-`require-external-offsets` policy stops the import if the field offsets cannot be loaded.
-
-For header-only import, use:
-
-```text
-/path/to/il2cpp.h - /path/to/script.json allow-inferred
-```
-
-The layout policy can be `allow-inferred`, `require-external-offsets`, or `require-authoritative`.
-
-## 2. Export
-
-After the import succeeds, run the exporter with the same project directory and project name:
+Install the wrapper in a virtual environment after installing TurboHeader:
 
 ```sh
-$GHIDRA_INSTALL_DIR/support/analyzeHeadless \
-  projects game \
-  -process libil2cpp.so \
-  -noanalysis \
-  -postScript cpp2il_ghidra_export_editable.py \
-  /path/to/DiffableCs \
-  /path/to/out \
-  blacklist \
-  --decompile-jobs 8
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install il2cpp-ghidrah
+il2cpp-ghidrah doctor --probe
 ```
 
-The selection mode can be `whitelist`, `blacklist`, or `all`.
-Without a `framework_ignore.txt` argument, `blacklist` uses the built-in framework rules.
+Then run the default TurboHeader workflow:
 
-Eight decompiler workers were the fastest tested setting on the 12-core development machine. Values up to 12 are
-supported for experimentation.
+```sh
+il2cpp-ghidrah run /path/to/libil2cpp.so \
+  -M /path/to/global-metadata.dat \
+  -g dumper \
+  -u 2022.3.62f3 \
+  -o output
+```
+
+Replace the Unity version with the application's exact version. See the wrapper's
+[README](https://github.com/TeamRocketIst/il2cpp-ghidrah#readme) for input formats,
+selection modes and advanced options.
 
 ## Tests
 

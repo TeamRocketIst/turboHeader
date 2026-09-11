@@ -12,7 +12,6 @@ cmake --build "$ROOT/native/build-clean" --parallel
 PYTHONPATH="$ROOT/tests" python3 "$ROOT/tests/test_native.py"
 python3 "$ROOT/tests/test_packaging.py"
 python3 "$ROOT/tests/test_release_workflow.py"
-python3 "$ROOT/tests/test_exporter.py"
 "$ROOT/tests/test_headless_workflow.sh"
 "$ROOT/tests/test_java.sh"
 "$ROOT/tests/test_ghidra_harness.sh"
