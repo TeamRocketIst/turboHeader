@@ -219,11 +219,24 @@ jobs:
               if actual != expected:
                   raise SystemExit("Ghidra distribution checksum mismatch")
           PY
-          python3 -m zipfile -e "$download_dir/ghidra.zip" "$download_dir/ghidra-dist"
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            python3 -m zipfile -e "$download_dir/ghidra.zip" "$download_dir/ghidra-dist"
+          else
+            unzip -q "$download_dir/ghidra.zip" -d "$download_dir/ghidra-dist"
+          fi
           ghidra_dir="$(find "$download_dir/ghidra-dist" -mindepth 1 -maxdepth 1 -type d -print -quit)"
           [[ "$(find "$download_dir/ghidra-dist" -mindepth 1 -maxdepth 1 -type d | wc -l)" -eq 1 ]]
           [[ -f "$ghidra_dir/support/buildExtension.gradle" ]]
           chmod +x "$ghidra_dir/support/analyzeHeadless" "$ghidra_dir/support/launch.sh"
+          if [[ "$RUNNER_OS" != "Windows" ]]; then
+            while IFS= read -r tool; do
+              [[ -x "$tool" ]] || {
+                echo "Ghidra tool is not executable: $tool" >&2
+                exit 1
+              }
+            done < <(find "$ghidra_dir/Ghidra/Features/Decompiler/os" \
+              -type f \( -name decompile -o -name sleigh \))
+          fi
           echo "GHIDRA_INSTALL_DIR=$(cd "$ghidra_dir" && pwd)" >>"$GITHUB_ENV"
       - name: Build and verify native target
         env:
@@ -341,11 +354,18 @@ jobs:
               if actual != expected:
                   raise SystemExit("Ghidra distribution checksum mismatch")
           PY
-          python3 -m zipfile -e "$download_dir/ghidra.zip" "$download_dir/ghidra-dist"
+          unzip -q "$download_dir/ghidra.zip" -d "$download_dir/ghidra-dist"
           ghidra_dir="$(find "$download_dir/ghidra-dist" -mindepth 1 -maxdepth 1 -type d -print -quit)"
           [[ "$(find "$download_dir/ghidra-dist" -mindepth 1 -maxdepth 1 -type d | wc -l)" -eq 1 ]]
           [[ -f "$ghidra_dir/support/buildExtension.gradle" ]]
           chmod +x "$ghidra_dir/support/analyzeHeadless" "$ghidra_dir/support/launch.sh"
+          while IFS= read -r tool; do
+            [[ -x "$tool" ]] || {
+              echo "Ghidra tool is not executable: $tool" >&2
+              exit 1
+            }
+          done < <(find "$ghidra_dir/Ghidra/Features/Decompiler/os" \
+            -type f \( -name decompile -o -name sleigh \))
           echo "GHIDRA_INSTALL_DIR=$(cd "$ghidra_dir" && pwd)" >>"$GITHUB_ENV"
       - name: Build and verify native target
         env:
