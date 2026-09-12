@@ -1,4 +1,4 @@
-package turboheader.il2cpp;
+package turboheader.il2cpp.types;
 
 /** User-facing diagnostics shared by the script and the lightweight test harness. */
 public final class ImportDiagnostics {

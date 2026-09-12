@@ -21,7 +21,7 @@ import ghidra.program.model.data.Structure;
 import ghidra.program.model.data.StructureDataType;
 import ghidra.util.exception.CancelledException;
 import ghidra.util.task.TaskMonitorAdapter;
-import turboheader.il2cpp.GhidraTypeImporter;
+import turboheader.il2cpp.types.GhidraTypeImporter;
 import turboheader.il2cpp.NativeParser;
 import turboheader.il2cpp.model.TypeModel.FieldDef;
 import turboheader.il2cpp.model.TypeModel.Model;

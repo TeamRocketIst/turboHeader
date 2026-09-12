@@ -32,6 +32,8 @@ import ghidra.program.model.symbol.SourceType;
 import ghidra.program.model.symbol.SymbolUtilities;
 import ghidra.util.InvalidNameException;
 import ghidra.util.task.TaskMonitor;
+import turboheader.il2cpp.types.CFunctionSignatureParser;
+import turboheader.il2cpp.types.GhidraTypeImporter;
 
 /** Applies script.json prototypes without reparsing the complete C header. */
 public final class GhidraMethodImporter {

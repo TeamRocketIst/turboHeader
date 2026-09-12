@@ -1,5 +1,6 @@
-package turboheader.il2cpp;
+package turboheader.il2cpp.types;
 
+import turboheader.il2cpp.NativeParser;
 import turboheader.il2cpp.model.TypeModel;
 
 import java.nio.file.Path;

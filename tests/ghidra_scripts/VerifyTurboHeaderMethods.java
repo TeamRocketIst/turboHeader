@@ -9,7 +9,7 @@ import java.util.Set;
 import ghidra.app.script.GhidraScript;
 import ghidra.program.model.listing.Function;
 import ghidra.program.model.listing.Parameter;
-import turboheader.il2cpp.CFunctionSignatureParser;
+import turboheader.il2cpp.types.CFunctionSignatureParser;
 import turboheader.il2cpp.MethodAssemblyIdentity;
 import turboheader.il2cpp.ScriptMethodReader;
 

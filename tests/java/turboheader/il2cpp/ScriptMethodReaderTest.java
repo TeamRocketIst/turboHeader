@@ -3,6 +3,8 @@ package turboheader.il2cpp;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+import turboheader.il2cpp.types.CFunctionSignatureParser;
+
 public final class ScriptMethodReaderTest {
     public static void main(String[] args) throws Exception {
         Path fixture = Files.createTempFile("turboheader-script-methods", ".json");

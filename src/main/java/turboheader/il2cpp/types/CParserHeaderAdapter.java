@@ -1,4 +1,4 @@
-package turboheader.il2cpp;
+package turboheader.il2cpp.types;
 
 import java.io.BufferedReader;
 import java.io.FilterInputStream;

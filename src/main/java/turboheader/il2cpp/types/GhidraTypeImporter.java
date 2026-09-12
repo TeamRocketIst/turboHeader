@@ -1,4 +1,4 @@
-package turboheader.il2cpp;
+package turboheader.il2cpp.types;
 
 import static turboheader.il2cpp.model.TypeModel.FieldDef;
 import static turboheader.il2cpp.model.TypeModel.LayoutEvidence;

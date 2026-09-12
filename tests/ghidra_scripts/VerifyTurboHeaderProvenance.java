@@ -8,7 +8,7 @@ import ghidra.app.script.GhidraScript;
 import ghidra.program.model.data.DataTypeComponent;
 import ghidra.program.model.data.DataTypePath;
 import ghidra.program.model.data.Structure;
-import turboheader.il2cpp.GhidraTypeImporter;
+import turboheader.il2cpp.types.GhidraTypeImporter;
 import turboheader.il2cpp.NativeParser;
 
 public class VerifyTurboHeaderProvenance extends GhidraScript {

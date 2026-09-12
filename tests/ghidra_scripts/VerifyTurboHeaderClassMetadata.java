@@ -16,7 +16,7 @@ import ghidra.program.model.data.VoidDataType;
 import ghidra.program.model.listing.CommentType;
 import ghidra.program.model.reloc.Relocation.Status;
 import ghidra.program.model.symbol.SourceType;
-import turboheader.il2cpp.GhidraTypeImporter;
+import turboheader.il2cpp.types.GhidraTypeImporter;
 import turboheader.il2cpp.GhidraMetadataImporter;
 import turboheader.il2cpp.GhidraRelocationImporter;
 import turboheader.il2cpp.GhidraStringImporter;

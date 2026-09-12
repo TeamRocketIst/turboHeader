@@ -1,9 +1,10 @@
-package turboheader.il2cpp;
+package turboheader.il2cpp.types;
 
 import java.nio.file.Path;
 
 import ghidra.program.model.listing.Program;
 import ghidra.util.task.TaskMonitor;
+import turboheader.il2cpp.NativeParser;
 
 /** Validates and imports an arbitrary generated model with the lightweight Ghidra test doubles. */
 public final class CorpusModelValidation {

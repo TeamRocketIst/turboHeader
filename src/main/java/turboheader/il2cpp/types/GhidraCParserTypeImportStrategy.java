@@ -1,4 +1,4 @@
-package turboheader.il2cpp;
+package turboheader.il2cpp.types;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -13,6 +13,7 @@ import ghidra.framework.Application;
 import ghidra.program.model.data.DataTypeManager;
 import ghidra.program.model.listing.Program;
 import ghidra.util.task.TaskMonitor;
+import turboheader.il2cpp.Il2CppLayoutPolicy;
 
 /** Imports an IL2CPP header through Ghidra's general-purpose CParser. */
 public final class GhidraCParserTypeImportStrategy implements Il2CppTypeImportStrategy {

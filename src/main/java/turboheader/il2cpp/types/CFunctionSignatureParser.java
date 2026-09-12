@@ -1,4 +1,4 @@
-package turboheader.il2cpp;
+package turboheader.il2cpp.types;
 
 import java.util.ArrayList;
 import java.util.HashSet;

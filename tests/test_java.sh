@@ -18,10 +18,10 @@ javac --release 21 -d "$BUILD/classes" \
   "$ROOT/tests/java/turboheader/il2cpp/Il2CppHelperNamesTest.java" \
   "$ROOT/src/main/java/turboheader/il2cpp/Il2CppHelperProofPolicy.java" \
   "$ROOT/tests/java/turboheader/il2cpp/Il2CppHelperProofPolicyTest.java" \
-  "$ROOT/src/main/java/turboheader/il2cpp/ImportDiagnostics.java" \
-  "$ROOT/tests/java/turboheader/il2cpp/ImportDiagnosticsTest.java" \
-  "$ROOT/src/main/java/turboheader/il2cpp/CParserHeaderAdapter.java" \
-  "$ROOT/tests/java/turboheader/il2cpp/CParserHeaderAdapterTest.java" \
+  "$ROOT/src/main/java/turboheader/il2cpp/types/ImportDiagnostics.java" \
+  "$ROOT/tests/java/turboheader/il2cpp/types/ImportDiagnosticsTest.java" \
+  "$ROOT/src/main/java/turboheader/il2cpp/types/CParserHeaderAdapter.java" \
+  "$ROOT/tests/java/turboheader/il2cpp/types/CParserHeaderAdapterTest.java" \
   "$ROOT/src/main/java/turboheader/il2cpp/MethodAssemblyIdentity.java" \
   "$ROOT/tests/java/turboheader/il2cpp/MethodAssemblyIdentityTest.java" \
   "$ROOT/src/main/java/turboheader/il2cpp/model/TypeModel.java" \
@@ -31,8 +31,8 @@ javac --release 21 -d "$BUILD/classes" \
   "$ROOT/src/main/java/turboheader/il2cpp/ModelDumpCli.java" \
   "$ROOT/tests/java/turboheader/il2cpp/model/CoreSmokeTest.java" \
   "$ROOT/tests/java/turboheader/il2cpp/JniSmokeTest.java"
-java -cp "$BUILD/classes" turboheader.il2cpp.ImportDiagnosticsTest
-java -cp "$BUILD/classes" turboheader.il2cpp.CParserHeaderAdapterTest
+java -cp "$BUILD/classes" turboheader.il2cpp.types.ImportDiagnosticsTest
+java -cp "$BUILD/classes" turboheader.il2cpp.types.CParserHeaderAdapterTest
 java -cp "$BUILD/classes" turboheader.il2cpp.MethodAssemblyIdentityTest
 java -cp "$BUILD/classes" turboheader.il2cpp.Il2CppStringLabelsTest
 java -cp "$BUILD/classes" turboheader.il2cpp.Il2CppMethodMetadataLabelsTest
@@ -53,9 +53,9 @@ java -cp "$BUILD/classes" turboheader.il2cpp.Il2CppFunctionMatcherTest
 java -cp "$BUILD/classes" turboheader.il2cpp.Il2CppOutputPathTest
 
 javac --release 21 -d "$BUILD/classes" \
-  "$ROOT/src/main/java/turboheader/il2cpp/CFunctionSignatureParser.java" \
-  "$ROOT/tests/java/turboheader/il2cpp/CFunctionSignatureParserTest.java"
-java -cp "$BUILD/classes" turboheader.il2cpp.CFunctionSignatureParserTest
+  "$ROOT/src/main/java/turboheader/il2cpp/types/CFunctionSignatureParser.java" \
+  "$ROOT/tests/java/turboheader/il2cpp/types/CFunctionSignatureParserTest.java"
+java -cp "$BUILD/classes" turboheader.il2cpp.types.CFunctionSignatureParserTest
 
 javac --release 21 -d "$BUILD/classes" \
   "$ROOT/src/main/java/turboheader/il2cpp/Aarch64ControlFlowDecoder.java" \

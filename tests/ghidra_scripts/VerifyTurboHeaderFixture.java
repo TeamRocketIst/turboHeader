@@ -11,7 +11,7 @@ import ghidra.program.model.data.DataTypeComponent;
 import ghidra.program.model.data.DataTypePath;
 import ghidra.program.model.data.Structure;
 import ghidra.program.model.data.Union;
-import turboheader.il2cpp.GhidraTypeImporter;
+import turboheader.il2cpp.types.GhidraTypeImporter;
 
 public class VerifyTurboHeaderFixture extends GhidraScript {
     @Override

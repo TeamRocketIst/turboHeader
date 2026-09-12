@@ -1,4 +1,4 @@
-package turboheader.il2cpp;
+package turboheader.il2cpp.types;
 
 public final class ImportDiagnosticsTest {
     public static void main(String[] args) {

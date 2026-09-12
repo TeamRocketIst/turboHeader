@@ -1,6 +1,8 @@
-package turboheader.il2cpp;
+package turboheader.il2cpp.types;
 
 import java.nio.file.Path;
+
+import turboheader.il2cpp.Il2CppLayoutPolicy;
 
 /** Imports an IL2CPP header into a Ghidra program. */
 public interface Il2CppTypeImportStrategy {
