@@ -1,4 +1,4 @@
-package turboheader.il2cpp;
+package turboheader.il2cpp.exporting;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -23,6 +23,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
+import turboheader.il2cpp.Il2CppExportScope;
 import turboheader.il2cpp.metadata.MethodAssemblyIdentity;
 
 public final class Il2CppClassSelector {

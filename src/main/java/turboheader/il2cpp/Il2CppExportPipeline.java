@@ -12,6 +12,7 @@ import turboheader.il2cpp.decompile.Il2CppDecompilationCoordinator;
 import turboheader.il2cpp.decompile.Il2CppDecompilationPolicy;
 import turboheader.il2cpp.decompile.Il2CppDecompilerService;
 import turboheader.il2cpp.decompile.Il2CppFunctionPreparationService;
+import turboheader.il2cpp.exporting.Il2CppExportWriter;
 
 public final class Il2CppExportPipeline {
     private Il2CppExportPipeline() {

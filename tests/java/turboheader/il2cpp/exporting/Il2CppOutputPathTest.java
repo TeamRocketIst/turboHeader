@@ -1,4 +1,4 @@
-package turboheader.il2cpp;
+package turboheader.il2cpp.exporting;
 
 import java.io.IOException;
 import java.nio.file.Path;

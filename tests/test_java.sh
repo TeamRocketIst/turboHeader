@@ -41,16 +41,16 @@ java -cp "$BUILD/classes" turboheader.il2cpp.analysis.Il2CppHelperProofPolicyTes
 
 javac --release 21 -cp "$BUILD/classes" -d "$BUILD/classes" \
   "$ROOT/src/main/java/turboheader/il2cpp/Il2CppExportScope.java" \
-  "$ROOT/src/main/java/turboheader/il2cpp/Il2CppClassCatalog.java" \
-  "$ROOT/src/main/java/turboheader/il2cpp/Il2CppClassSelector.java" \
+  "$ROOT/src/main/java/turboheader/il2cpp/exporting/Il2CppClassCatalog.java" \
+  "$ROOT/src/main/java/turboheader/il2cpp/exporting/Il2CppClassSelector.java" \
   "$ROOT/src/main/java/turboheader/il2cpp/decompile/Il2CppFunctionMatcher.java" \
-  "$ROOT/src/main/java/turboheader/il2cpp/Il2CppOutputPath.java" \
-  "$ROOT/tests/java/turboheader/il2cpp/Il2CppClassCatalogTest.java" \
+  "$ROOT/src/main/java/turboheader/il2cpp/exporting/Il2CppOutputPath.java" \
+  "$ROOT/tests/java/turboheader/il2cpp/exporting/Il2CppClassCatalogTest.java" \
   "$ROOT/tests/java/turboheader/il2cpp/decompile/Il2CppFunctionMatcherTest.java" \
-  "$ROOT/tests/java/turboheader/il2cpp/Il2CppOutputPathTest.java"
-java -cp "$BUILD/classes" turboheader.il2cpp.Il2CppClassCatalogTest
+  "$ROOT/tests/java/turboheader/il2cpp/exporting/Il2CppOutputPathTest.java"
+java -cp "$BUILD/classes" turboheader.il2cpp.exporting.Il2CppClassCatalogTest
 java -cp "$BUILD/classes" turboheader.il2cpp.decompile.Il2CppFunctionMatcherTest
-java -cp "$BUILD/classes" turboheader.il2cpp.Il2CppOutputPathTest
+java -cp "$BUILD/classes" turboheader.il2cpp.exporting.Il2CppOutputPathTest
 
 javac --release 21 -d "$BUILD/classes" \
   "$ROOT/src/main/java/turboheader/il2cpp/types/CFunctionSignatureParser.java" \

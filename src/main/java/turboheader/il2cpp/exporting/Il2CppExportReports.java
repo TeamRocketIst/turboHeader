@@ -1,4 +1,4 @@
-package turboheader.il2cpp;
+package turboheader.il2cpp.exporting;
 
 import java.io.BufferedWriter;
 import java.io.IOException;
@@ -11,6 +11,7 @@ import java.util.Locale;
 import ghidra.program.model.listing.Program;
 import ghidra.util.exception.CancelledException;
 import ghidra.util.task.TaskMonitor;
+import turboheader.il2cpp.Il2CppExportPlanner;
 import turboheader.il2cpp.decompile.Il2CppDecompilationCoordinator;
 import turboheader.il2cpp.decompile.Il2CppDecompilerService;
 

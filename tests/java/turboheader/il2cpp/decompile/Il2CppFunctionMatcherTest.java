@@ -3,7 +3,7 @@ package turboheader.il2cpp.decompile;
 import java.nio.file.Path;
 import java.util.List;
 
-import turboheader.il2cpp.Il2CppClassCatalog;
+import turboheader.il2cpp.exporting.Il2CppClassCatalog;
 import turboheader.il2cpp.metadata.MethodAssemblyIdentity;
 
 public final class Il2CppFunctionMatcherTest {

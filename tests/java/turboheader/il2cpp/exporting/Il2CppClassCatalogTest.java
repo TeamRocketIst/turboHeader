@@ -1,10 +1,12 @@
-package turboheader.il2cpp;
+package turboheader.il2cpp.exporting;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+
+import turboheader.il2cpp.Il2CppExportScope;
 
 public final class Il2CppClassCatalogTest {
     private Il2CppClassCatalogTest() {

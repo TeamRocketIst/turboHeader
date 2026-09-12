@@ -15,6 +15,9 @@ import ghidra.util.exception.CancelledException;
 import ghidra.util.task.TaskMonitor;
 import turboheader.il2cpp.decompile.GhidraFunctionMatcher;
 import turboheader.il2cpp.decompile.Il2CppFunctionMatcher;
+import turboheader.il2cpp.exporting.Il2CppClassCatalog;
+import turboheader.il2cpp.exporting.Il2CppClassSelector;
+import turboheader.il2cpp.exporting.Il2CppOutputPath;
 
 public final class Il2CppExportPlanner {
     private static final List<String> PRESELECTED_ASSEMBLIES = List.of("*");
