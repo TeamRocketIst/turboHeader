@@ -5,6 +5,8 @@ if (!ghidraInstallDir) {
 
 apply from: new File(ghidraInstallDir, "support/buildExtension.gradle").getCanonicalPath()
 
+def extensionName = project.name
+
 java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(21)
@@ -42,7 +44,7 @@ def releaseFiles = [
     "LICENSE",
     "THIRD_PARTY_NOTICES.md",
     "README.md",
-    "lib/${project.name}.jar",
+    "lib/${extensionName}.jar",
     "ghidra_scripts/ImportIl2CppTypes.java",
     "ghidra_scripts/ExportIl2Cpp.java",
     "ghidra_scripts/PlanIl2CppExport.java",
@@ -140,19 +142,19 @@ tasks.named("buildExtension", Zip) {
     includeEmptyDirs = false
     if (prebuiltOsPath) {
         from(file(prebuiltOsPath)) {
-            into "${project.name}/os"
+            into "${extensionName}/os"
         }
     }
     else {
         from(nativeStageDir) {
-            into "${project.name}/os"
+            into "${extensionName}/os"
         }
     }
     eachFile { file ->
-        String prefix = "${project.name}/"
+        String prefix = "${extensionName}/"
         String path = file.path
         String relative = path.startsWith(prefix) ? path.substring(prefix.length()) : path
-        boolean generatedJar = file.name == "${project.name}.jar"
+        boolean generatedJar = file.name == "${extensionName}.jar"
         if (!generatedJar && !releaseFiles.contains(relative) &&
                 !releaseNativeFiles.contains(relative)) {
             file.exclude()
