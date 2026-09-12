@@ -1,4 +1,4 @@
-package turboheader.il2cpp;
+package turboheader.il2cpp.analysis;
 
 import java.util.HashSet;
 import java.util.List;

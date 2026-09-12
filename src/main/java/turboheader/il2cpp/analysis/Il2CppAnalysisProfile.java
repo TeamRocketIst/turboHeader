@@ -1,4 +1,4 @@
-package turboheader.il2cpp;
+package turboheader.il2cpp.analysis;
 
 import java.nio.file.Path;
 import java.util.ArrayList;

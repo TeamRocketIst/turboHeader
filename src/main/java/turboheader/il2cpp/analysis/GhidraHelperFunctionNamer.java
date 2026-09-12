@@ -1,4 +1,4 @@
-package turboheader.il2cpp;
+package turboheader.il2cpp.analysis;
 
 import ghidra.program.model.listing.Function;
 import ghidra.program.model.symbol.SourceType;

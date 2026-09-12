@@ -1,4 +1,4 @@
-package turboheader.il2cpp;
+package turboheader.il2cpp.analysis;
 
 /**
  * Minimal, allocation-free AArch64 control-flow classifier.

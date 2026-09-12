@@ -6,6 +6,8 @@ import java.util.function.Consumer;
 
 import ghidra.program.model.listing.Program;
 import ghidra.util.task.TaskMonitor;
+import turboheader.il2cpp.analysis.Il2CppExportAnalysisService;
+import turboheader.il2cpp.analysis.Il2CppNoreturnAnalyzer;
 
 public final class Il2CppExportPipeline {
     private Il2CppExportPipeline() {

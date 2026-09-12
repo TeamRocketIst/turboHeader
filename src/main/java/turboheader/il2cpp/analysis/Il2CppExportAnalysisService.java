@@ -1,4 +1,4 @@
-package turboheader.il2cpp;
+package turboheader.il2cpp.analysis;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -12,6 +12,7 @@ import ghidra.program.model.listing.Function;
 import ghidra.program.model.listing.Program;
 import ghidra.util.exception.CancelledException;
 import ghidra.util.task.TaskMonitor;
+import turboheader.il2cpp.Il2CppFunctionPreparationService;
 
 public final class Il2CppExportAnalysisService {
     private static final List<String> GLOBAL_ANALYZERS = List.of(

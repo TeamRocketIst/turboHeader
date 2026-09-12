@@ -32,7 +32,7 @@ import ghidra.program.model.symbol.SourceType;
 import ghidra.program.model.symbol.SymbolUtilities;
 import ghidra.util.InvalidNameException;
 import ghidra.util.task.TaskMonitor;
-import turboheader.il2cpp.Il2CppProgramFacts;
+import turboheader.il2cpp.analysis.Il2CppProgramFacts;
 import turboheader.il2cpp.types.CFunctionSignatureParser;
 import turboheader.il2cpp.types.GhidraTypeImporter;
 

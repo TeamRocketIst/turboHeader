@@ -13,11 +13,11 @@ javac --release 21 -d "$BUILD/classes" \
   "$ROOT/tests/java/turboheader/il2cpp/metadata/Il2CppStringLabelsTest.java" \
   "$ROOT/src/main/java/turboheader/il2cpp/metadata/Il2CppMethodMetadataLabels.java" \
   "$ROOT/tests/java/turboheader/il2cpp/metadata/Il2CppMethodMetadataLabelsTest.java" \
-  "$ROOT/src/main/java/turboheader/il2cpp/Il2CppHelperKind.java" \
-  "$ROOT/src/main/java/turboheader/il2cpp/Il2CppHelperNames.java" \
-  "$ROOT/tests/java/turboheader/il2cpp/Il2CppHelperNamesTest.java" \
-  "$ROOT/src/main/java/turboheader/il2cpp/Il2CppHelperProofPolicy.java" \
-  "$ROOT/tests/java/turboheader/il2cpp/Il2CppHelperProofPolicyTest.java" \
+  "$ROOT/src/main/java/turboheader/il2cpp/analysis/Il2CppHelperKind.java" \
+  "$ROOT/src/main/java/turboheader/il2cpp/analysis/Il2CppHelperNames.java" \
+  "$ROOT/tests/java/turboheader/il2cpp/analysis/Il2CppHelperNamesTest.java" \
+  "$ROOT/src/main/java/turboheader/il2cpp/analysis/Il2CppHelperProofPolicy.java" \
+  "$ROOT/tests/java/turboheader/il2cpp/analysis/Il2CppHelperProofPolicyTest.java" \
   "$ROOT/src/main/java/turboheader/il2cpp/types/ImportDiagnostics.java" \
   "$ROOT/tests/java/turboheader/il2cpp/types/ImportDiagnosticsTest.java" \
   "$ROOT/src/main/java/turboheader/il2cpp/types/CParserHeaderAdapter.java" \
@@ -36,8 +36,8 @@ java -cp "$BUILD/classes" turboheader.il2cpp.types.CParserHeaderAdapterTest
 java -cp "$BUILD/classes" turboheader.il2cpp.metadata.MethodAssemblyIdentityTest
 java -cp "$BUILD/classes" turboheader.il2cpp.metadata.Il2CppStringLabelsTest
 java -cp "$BUILD/classes" turboheader.il2cpp.metadata.Il2CppMethodMetadataLabelsTest
-java -cp "$BUILD/classes" turboheader.il2cpp.Il2CppHelperNamesTest
-java -cp "$BUILD/classes" turboheader.il2cpp.Il2CppHelperProofPolicyTest
+java -cp "$BUILD/classes" turboheader.il2cpp.analysis.Il2CppHelperNamesTest
+java -cp "$BUILD/classes" turboheader.il2cpp.analysis.Il2CppHelperProofPolicyTest
 
 javac --release 21 -cp "$BUILD/classes" -d "$BUILD/classes" \
   "$ROOT/src/main/java/turboheader/il2cpp/Il2CppExportScope.java" \
@@ -58,13 +58,13 @@ javac --release 21 -d "$BUILD/classes" \
 java -cp "$BUILD/classes" turboheader.il2cpp.types.CFunctionSignatureParserTest
 
 javac --release 21 -d "$BUILD/classes" \
-  "$ROOT/src/main/java/turboheader/il2cpp/Aarch64ControlFlowDecoder.java" \
-  "$ROOT/src/main/java/turboheader/il2cpp/NoreturnSeedReader.java" \
-  "$ROOT/src/main/java/turboheader/il2cpp/NoreturnProofEngine.java" \
-  "$ROOT/tests/java/turboheader/il2cpp/NoreturnProofEngineTest.java" \
-  "$ROOT/tests/java/turboheader/il2cpp/NoreturnSeedReaderTest.java"
-java -cp "$BUILD/classes" turboheader.il2cpp.NoreturnProofEngineTest
-java -cp "$BUILD/classes" turboheader.il2cpp.NoreturnSeedReaderTest
+  "$ROOT/src/main/java/turboheader/il2cpp/analysis/Aarch64ControlFlowDecoder.java" \
+  "$ROOT/src/main/java/turboheader/il2cpp/analysis/NoreturnSeedReader.java" \
+  "$ROOT/src/main/java/turboheader/il2cpp/analysis/NoreturnProofEngine.java" \
+  "$ROOT/tests/java/turboheader/il2cpp/analysis/NoreturnProofEngineTest.java" \
+  "$ROOT/tests/java/turboheader/il2cpp/analysis/NoreturnSeedReaderTest.java"
+java -cp "$BUILD/classes" turboheader.il2cpp.analysis.NoreturnProofEngineTest
+java -cp "$BUILD/classes" turboheader.il2cpp.analysis.NoreturnSeedReaderTest
 
 if [[ -n "${GHIDRA_INSTALL_DIR:-}" ]]; then
   GSON_JAR="$(find "$GHIDRA_INSTALL_DIR/Ghidra" -name 'gson-*.jar' -type f | head -n 1)"

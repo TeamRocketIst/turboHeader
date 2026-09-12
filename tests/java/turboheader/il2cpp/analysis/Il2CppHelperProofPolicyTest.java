@@ -1,4 +1,4 @@
-package turboheader.il2cpp;
+package turboheader.il2cpp.analysis;
 
 public final class Il2CppHelperProofPolicyTest {
     public static void main(String[] args) {
