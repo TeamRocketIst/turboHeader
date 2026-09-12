@@ -1,4 +1,4 @@
-package turboheader.il2cpp;
+package turboheader.il2cpp.metadata;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -32,6 +32,7 @@ import ghidra.program.model.symbol.SourceType;
 import ghidra.program.model.symbol.SymbolUtilities;
 import ghidra.util.InvalidNameException;
 import ghidra.util.task.TaskMonitor;
+import turboheader.il2cpp.Il2CppProgramFacts;
 import turboheader.il2cpp.types.CFunctionSignatureParser;
 import turboheader.il2cpp.types.GhidraTypeImporter;
 
@@ -39,7 +40,7 @@ import turboheader.il2cpp.types.GhidraTypeImporter;
 public final class GhidraMethodImporter {
     static final CategoryPath OPAQUE = new CategoryPath("/IL2CPP/__signature_opaque");
     static final CategoryPath ALIASES = new CategoryPath("/IL2CPP/__signature_aliases");
-    static final CategoryPath SIGNATURES = new CategoryPath("/IL2CPP/__signatures");
+    private static final CategoryPath SIGNATURES = new CategoryPath("/IL2CPP/__signatures");
     private static final String OWNED_DESCRIPTION =
             "TurboHeader IL2CPP managed type; signature-only opaque C type";
     private static final int SAMPLE_LIMIT = 12;
@@ -87,6 +88,10 @@ public final class GhidraMethodImporter {
                 assemblyIdentities,
                 methods.size() - applied, Map.copyOf(failureCounts), List.copyOf(failureSamples),
                 System.nanoTime() - started);
+    }
+
+    public static CategoryPath signatureCategory() {
+        return SIGNATURES;
     }
 
     private void importMethod(ScriptMethodReader.ScriptMethod method) {
@@ -190,7 +195,7 @@ public final class GhidraMethodImporter {
         return typeSignature != null && typeSignature.length() == parsed.parameters().size() + 1;
     }
 
-    DataType resolveType(String declaration, boolean parameter) {
+    public DataType resolveType(String declaration, boolean parameter) {
         String text = normalize(declaration);
         int pointers = 0;
         while (text.endsWith("*")) {

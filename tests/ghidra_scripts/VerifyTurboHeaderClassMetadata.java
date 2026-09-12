@@ -17,12 +17,12 @@ import ghidra.program.model.listing.CommentType;
 import ghidra.program.model.reloc.Relocation.Status;
 import ghidra.program.model.symbol.SourceType;
 import turboheader.il2cpp.types.GhidraTypeImporter;
-import turboheader.il2cpp.GhidraMetadataImporter;
-import turboheader.il2cpp.GhidraRelocationImporter;
-import turboheader.il2cpp.GhidraStringImporter;
-import turboheader.il2cpp.Il2CppStringLabels;
-import turboheader.il2cpp.ScriptMethodReader.ScriptMetadata;
-import turboheader.il2cpp.ScriptMethodReader.ScriptString;
+import turboheader.il2cpp.metadata.GhidraMetadataImporter;
+import turboheader.il2cpp.metadata.GhidraRelocationImporter;
+import turboheader.il2cpp.metadata.GhidraStringImporter;
+import turboheader.il2cpp.metadata.Il2CppStringLabels;
+import turboheader.il2cpp.metadata.ScriptMethodReader.ScriptMetadata;
+import turboheader.il2cpp.metadata.ScriptMethodReader.ScriptString;
 
 public class VerifyTurboHeaderClassMetadata extends GhidraScript {
     @Override

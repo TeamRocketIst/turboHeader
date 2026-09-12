@@ -1,4 +1,4 @@
-package turboheader.il2cpp;
+package turboheader.il2cpp.metadata;
 
 import java.util.ArrayList;
 import java.util.List;

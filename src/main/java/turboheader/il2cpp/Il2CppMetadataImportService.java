@@ -9,6 +9,12 @@ import java.util.function.Consumer;
 
 import ghidra.program.model.listing.Program;
 import ghidra.util.task.TaskMonitor;
+import turboheader.il2cpp.metadata.GhidraMetadataImporter;
+import turboheader.il2cpp.metadata.GhidraMethodImporter;
+import turboheader.il2cpp.metadata.GhidraMethodMetadataImporter;
+import turboheader.il2cpp.metadata.GhidraRelocationImporter;
+import turboheader.il2cpp.metadata.GhidraStringImporter;
+import turboheader.il2cpp.metadata.ScriptMethodReader;
 
 /** Imports script.json annotations and managed method signatures into a program. */
 public final class Il2CppMetadataImportService {

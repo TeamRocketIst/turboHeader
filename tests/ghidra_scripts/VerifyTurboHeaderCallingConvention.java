@@ -5,8 +5,8 @@ import java.util.List;
 
 import ghidra.app.script.GhidraScript;
 import ghidra.program.model.listing.Function;
-import turboheader.il2cpp.GhidraMethodImporter;
-import turboheader.il2cpp.ScriptMethodReader.ScriptMethod;
+import turboheader.il2cpp.metadata.GhidraMethodImporter;
+import turboheader.il2cpp.metadata.ScriptMethodReader.ScriptMethod;
 
 public class VerifyTurboHeaderCallingConvention extends GhidraScript {
     @Override

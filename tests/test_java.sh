@@ -9,10 +9,10 @@ rm -rf "$BUILD"
 mkdir -p "$BUILD/classes"
 
 javac --release 21 -d "$BUILD/classes" \
-  "$ROOT/src/main/java/turboheader/il2cpp/Il2CppStringLabels.java" \
-  "$ROOT/tests/java/turboheader/il2cpp/Il2CppStringLabelsTest.java" \
-  "$ROOT/src/main/java/turboheader/il2cpp/Il2CppMethodMetadataLabels.java" \
-  "$ROOT/tests/java/turboheader/il2cpp/Il2CppMethodMetadataLabelsTest.java" \
+  "$ROOT/src/main/java/turboheader/il2cpp/metadata/Il2CppStringLabels.java" \
+  "$ROOT/tests/java/turboheader/il2cpp/metadata/Il2CppStringLabelsTest.java" \
+  "$ROOT/src/main/java/turboheader/il2cpp/metadata/Il2CppMethodMetadataLabels.java" \
+  "$ROOT/tests/java/turboheader/il2cpp/metadata/Il2CppMethodMetadataLabelsTest.java" \
   "$ROOT/src/main/java/turboheader/il2cpp/Il2CppHelperKind.java" \
   "$ROOT/src/main/java/turboheader/il2cpp/Il2CppHelperNames.java" \
   "$ROOT/tests/java/turboheader/il2cpp/Il2CppHelperNamesTest.java" \
@@ -22,8 +22,8 @@ javac --release 21 -d "$BUILD/classes" \
   "$ROOT/tests/java/turboheader/il2cpp/types/ImportDiagnosticsTest.java" \
   "$ROOT/src/main/java/turboheader/il2cpp/types/CParserHeaderAdapter.java" \
   "$ROOT/tests/java/turboheader/il2cpp/types/CParserHeaderAdapterTest.java" \
-  "$ROOT/src/main/java/turboheader/il2cpp/MethodAssemblyIdentity.java" \
-  "$ROOT/tests/java/turboheader/il2cpp/MethodAssemblyIdentityTest.java" \
+  "$ROOT/src/main/java/turboheader/il2cpp/metadata/MethodAssemblyIdentity.java" \
+  "$ROOT/tests/java/turboheader/il2cpp/metadata/MethodAssemblyIdentityTest.java" \
   "$ROOT/src/main/java/turboheader/il2cpp/model/TypeModel.java" \
   "$ROOT/src/main/java/turboheader/il2cpp/model/ModelDecoder.java" \
   "$ROOT/src/main/java/turboheader/il2cpp/NativeLibraryLoader.java" \
@@ -33,9 +33,9 @@ javac --release 21 -d "$BUILD/classes" \
   "$ROOT/tests/java/turboheader/il2cpp/JniSmokeTest.java"
 java -cp "$BUILD/classes" turboheader.il2cpp.types.ImportDiagnosticsTest
 java -cp "$BUILD/classes" turboheader.il2cpp.types.CParserHeaderAdapterTest
-java -cp "$BUILD/classes" turboheader.il2cpp.MethodAssemblyIdentityTest
-java -cp "$BUILD/classes" turboheader.il2cpp.Il2CppStringLabelsTest
-java -cp "$BUILD/classes" turboheader.il2cpp.Il2CppMethodMetadataLabelsTest
+java -cp "$BUILD/classes" turboheader.il2cpp.metadata.MethodAssemblyIdentityTest
+java -cp "$BUILD/classes" turboheader.il2cpp.metadata.Il2CppStringLabelsTest
+java -cp "$BUILD/classes" turboheader.il2cpp.metadata.Il2CppMethodMetadataLabelsTest
 java -cp "$BUILD/classes" turboheader.il2cpp.Il2CppHelperNamesTest
 java -cp "$BUILD/classes" turboheader.il2cpp.Il2CppHelperProofPolicyTest
 
@@ -74,10 +74,10 @@ if [[ -n "${GHIDRA_INSTALL_DIR:-}" ]]; then
     "$ROOT/src/main/java/turboheader/il2cpp/Il2CppDecompilationPolicy.java" \
     "$ROOT/src/main/java/turboheader/il2cpp/HeadlessRequestReader.java" \
     "$ROOT/tests/java/turboheader/il2cpp/HeadlessRequestReaderTest.java" \
-    "$ROOT/src/main/java/turboheader/il2cpp/ScriptMethodReader.java" \
-    "$ROOT/tests/java/turboheader/il2cpp/ScriptMethodReaderTest.java"
+    "$ROOT/src/main/java/turboheader/il2cpp/metadata/ScriptMethodReader.java" \
+    "$ROOT/tests/java/turboheader/il2cpp/metadata/ScriptMethodReaderTest.java"
   java -cp "$GSON_JAR:$BUILD/classes" turboheader.il2cpp.HeadlessRequestReaderTest
-  java -cp "$GSON_JAR:$BUILD/classes" turboheader.il2cpp.ScriptMethodReaderTest \
+  java -cp "$GSON_JAR:$BUILD/classes" turboheader.il2cpp.metadata.ScriptMethodReaderTest \
     ${TURBOHEADER_SCRIPT_CORPUS:+"$TURBOHEADER_SCRIPT_CORPUS"}
 fi
 

@@ -1,4 +1,4 @@
-package turboheader.il2cpp;
+package turboheader.il2cpp.metadata;
 
 public final class Il2CppStringLabelsTest {
     public static void main(String[] args) {

@@ -22,6 +22,7 @@ import ghidra.program.model.pcode.PcodeOp;
 import ghidra.program.model.pcode.PcodeOpAST;
 import ghidra.program.model.symbol.SourceType;
 import ghidra.util.task.TaskMonitor;
+import turboheader.il2cpp.metadata.GhidraMethodImporter;
 
 /** Discovers the returning IL2CPP runtime-metadata initializer from typed call arguments. */
 public final class Il2CppRuntimeMetadataAnalyzer {
@@ -149,7 +150,7 @@ public final class Il2CppRuntimeMetadataAnalyzer {
         }
 
         FunctionDefinitionDataType signature = new FunctionDefinitionDataType(
-                GhidraMethodImporter.SIGNATURES, expected, program.getDataTypeManager());
+                GhidraMethodImporter.signatureCategory(), expected, program.getDataTypeManager());
         signature.setReturnType(VoidDataType.dataType);
         signature.setArguments(new ParameterDefinitionImpl("metadataPointer",
                 program.getDataTypeManager().getPointer(

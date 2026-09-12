@@ -3,6 +3,8 @@ package turboheader.il2cpp;
 import java.nio.file.Path;
 import java.util.List;
 
+import turboheader.il2cpp.metadata.MethodAssemblyIdentity;
+
 public final class Il2CppFunctionMatcherTest {
     private Il2CppFunctionMatcherTest() {
     }

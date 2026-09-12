@@ -13,6 +13,7 @@ import ghidra.program.model.listing.Program;
 import ghidra.program.model.util.AddressSetPropertyMap;
 import ghidra.program.model.util.StringPropertyMap;
 import ghidra.util.exception.DuplicateNameException;
+import turboheader.il2cpp.metadata.ScriptMethodReader;
 
 /** Persistent IL2CPP facts shared by import and analysis inside one Ghidra program. */
 public final class Il2CppProgramFacts {

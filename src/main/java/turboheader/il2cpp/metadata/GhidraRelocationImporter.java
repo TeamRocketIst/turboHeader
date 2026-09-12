@@ -1,4 +1,4 @@
-package turboheader.il2cpp;
+package turboheader.il2cpp.metadata;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -22,6 +22,7 @@ import ghidra.program.model.reloc.Relocation.Status;
 import ghidra.program.model.symbol.SourceType;
 import ghidra.program.model.symbol.Symbol;
 import ghidra.util.task.TaskMonitor;
+import turboheader.il2cpp.Il2CppProgramFacts;
 
 /** Types IL2CPP metadata, method-metadata, and string slots in one relocation-table pass. */
 public final class GhidraRelocationImporter {

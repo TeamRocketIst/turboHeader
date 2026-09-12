@@ -10,7 +10,7 @@ import ghidra.program.model.listing.Function;
 import ghidra.program.model.symbol.SourceType;
 import turboheader.il2cpp.GhidraFunctionMatcher;
 import turboheader.il2cpp.Il2CppClassCatalog;
-import turboheader.il2cpp.MethodAssemblyIdentity;
+import turboheader.il2cpp.metadata.MethodAssemblyIdentity;
 
 public class VerifyTurboHeaderFunctionMatcher extends GhidraScript {
     @Override

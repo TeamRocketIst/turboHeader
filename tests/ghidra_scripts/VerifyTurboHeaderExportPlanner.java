@@ -12,7 +12,7 @@ import ghidra.program.model.symbol.SourceType;
 import turboheader.il2cpp.HeadlessRequestReader;
 import turboheader.il2cpp.Il2CppExportPlanner;
 import turboheader.il2cpp.Il2CppExportScope;
-import turboheader.il2cpp.MethodAssemblyIdentity;
+import turboheader.il2cpp.metadata.MethodAssemblyIdentity;
 
 public class VerifyTurboHeaderExportPlanner extends GhidraScript {
     @Override

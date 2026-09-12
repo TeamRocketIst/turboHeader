@@ -29,6 +29,7 @@ import ghidra.program.model.listing.Program;
 import ghidra.program.model.symbol.SourceType;
 import ghidra.program.model.symbol.Symbol;
 import ghidra.util.task.TaskMonitor;
+import turboheader.il2cpp.metadata.GhidraMethodImporter;
 
 /**
  * Names compiler-facing IL2CPP helpers from exported runtime entry points.
@@ -385,7 +386,7 @@ public final class Il2CppExportedHelperAnalyzer {
         String name = Il2CppHelperNames.mappedName(
                 definition.kind(), function.getEntryPoint().getOffset());
         FunctionDefinitionDataType signature = new FunctionDefinitionDataType(
-                GhidraMethodImporter.SIGNATURES, name, program.getDataTypeManager());
+                GhidraMethodImporter.signatureCategory(), name, program.getDataTypeManager());
         signature.setReturnType(typeResolver.resolveType(definition.returnType(), false));
         List<ParameterDefinition> arguments = new ArrayList<>();
         for (Parameter parameter : definition.parameters()) {
