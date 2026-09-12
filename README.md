@@ -1,6 +1,12 @@
 # turboHeader
 
-turboHeader imports IL2CPP types and method signatures into Ghidra, then exports selected classes as decompiled C++.
+TurboHeader turns Unity IL2CPP binaries into typed Ghidra projects and readable C++. It combines a [native IL2CPP parser](https://github.com/TeamRocketIst/turboHeader/blob/2ef4d06c81611bd6cfe86f51d60750bf9d5a1e63/native/src/il2cpp_native.c#L740-L776), [bulk type import](https://github.com/TeamRocketIst/turboHeader/blob/2ef4d06c81611bd6cfe86f51d60750bf9d5a1e63/src/main/java/turboheader/il2cpp/GhidraTypeImporter.java#L353-L370), [class and assembly selection](https://github.com/TeamRocketIst/turboHeader/blob/2ef4d06c81611bd6cfe86f51d60750bf9d5a1e63/src/main/java/turboheader/il2cpp/Il2CppClassSelector.java#L57-L87), [Unity-aware non-return analysis](https://github.com/TeamRocketIst/turboHeader/blob/2ef4d06c81611bd6cfe86f51d60750bf9d5a1e63/src/main/java/turboheader/il2cpp/NoreturnProofEngine.java#L41-L183) and [parallel decompilation](https://github.com/TeamRocketIst/turboHeader/blob/2ef4d06c81611bd6cfe86f51d60750bf9d5a1e63/src/main/java/turboheader/il2cpp/Il2CppDecompilerService.java#L210-L288). Selection avoids spending time decompiling framework code.
+
+TurboHeader also [types GOT relocation slots](https://github.com/TeamRocketIst/turboHeader/blob/2ef4d06c81611bd6cfe86f51d60750bf9d5a1e63/src/main/java/turboheader/il2cpp/GhidraRelocationImporter.java#L49-L140) using IL2CPP metadata; Il2CppDumper's [original Ghidra script](https://github.com/Perfare/Il2CppDumper/blob/4741d46ba9cd6159c5d853eb9d6fc48b4bfa2b1a/Il2CppDumper/ghidra_with_struct.py#L114-L125) types metadata entries but does not propagate those types through the relocation table.
+
+Ghidra import and export took **49% less time** than with [CParserUtils](https://github.com/NationalSecurityAgency/ghidra/blob/c0f584bf229fffba61b36431f3ce30c0c3e4e682/Ghidra/Features/Base/src/main/java/ghidra/app/util/cparser/C/CParserUtils.java). Replacing Ghidra's general non-return discovery reduced targeted analysis and export time by approximately **20%**.
+
+TurboHeader is developed and tested mainly for ARM64. x86-64 support is experimental and may not work correctly; the custom non-return pass currently [falls back to Ghidra's analyzer](https://github.com/TeamRocketIst/turboHeader/blob/2ef4d06c81611bd6cfe86f51d60750bf9d5a1e63/src/main/java/turboheader/il2cpp/Il2CppAnalysisProfile.java#L94-L100) outside AArch64.
 
 After installing TurboHeader, use the
 [il2cpp-ghidrah wrapper](https://github.com/TeamRocketIst/il2cpp-ghidrah) for the end-to-end command-line workflow. It runs the import and export as separate `analyzeHeadless` processes using Java entry points and validated request manifests.
