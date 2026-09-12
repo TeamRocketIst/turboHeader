@@ -44,6 +44,8 @@ javac --release 21 -cp "$BUILD/classes" -d "$BUILD/classes" \
   "$ROOT/src/main/java/turboheader/il2cpp/exporting/Il2CppClassCatalog.java" \
   "$ROOT/src/main/java/turboheader/il2cpp/exporting/Il2CppClassSelector.java" \
   "$ROOT/src/main/java/turboheader/il2cpp/decompile/Il2CppFunctionMatcher.java" \
+  "$ROOT/src/main/java/turboheader/il2cpp/exporting/PortableFilenameEncoder.java" \
+  "$ROOT/src/main/java/turboheader/il2cpp/exporting/Il2CppOutputPathAllocator.java" \
   "$ROOT/src/main/java/turboheader/il2cpp/exporting/Il2CppOutputPath.java" \
   "$ROOT/tests/java/turboheader/il2cpp/exporting/Il2CppClassCatalogTest.java" \
   "$ROOT/tests/java/turboheader/il2cpp/decompile/Il2CppFunctionMatcherTest.java" \

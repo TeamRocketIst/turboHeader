@@ -2,7 +2,6 @@ package turboheader.il2cpp.exporting;
 
 import java.io.IOException;
 import java.nio.file.Path;
-import java.text.Normalizer;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -13,12 +12,17 @@ public final class Il2CppOutputPathTest {
 
     public static void main(String[] args) throws IOException {
         preservesNormalPaths();
-        replacesUnsafeCharacters();
+        encodesUnsafeCharacters();
+        encodesUnicode();
         avoidsWindowsReservedNames();
         rejectsInvalidSegments();
-        disambiguatesSanitizedCollisions();
+        rejectsInvalidUnicode();
+        keepsEncodedNamesDistinct();
+        keepsUnicodeFormsDistinct();
+        reservesEncoderMarkers();
         disambiguatesCaseCollisions();
-        disambiguatesUnicodeEquivalentCollisions();
+        disambiguatesFileDirectoryCollisions();
+        boundsLongComponents();
         remainsStableAcrossInputOrder();
         rejectsDuplicateIdentities();
         System.out.println("IL2CPP output path tests passed");
@@ -32,36 +36,94 @@ public final class Il2CppOutputPathTest {
                 "normal class-set output path");
     }
 
-    private static void replacesUnsafeCharacters() {
+    private static void encodesUnsafeCharacters() {
         var entry = entry("Fixture:Core", "World/Actor?State.cs");
         check(Il2CppOutputPath.forClass(entry).equals(
-                Path.of("Fixture_Core", "World", "Actor_State.cpp")),
+                Path.of("Fixture~3ACore", "World", "Actor~3FState.cpp")),
                 "unsafe filename characters");
+    }
+
+    private static void encodesUnicode() {
+        var entry = entry("Fixture", "World/Caf\u00e9 State.cs");
+        check(Il2CppOutputPath.forClass(entry).equals(
+                Path.of("Fixture", "World", "Caf~C3~A9~20State.cpp")),
+                "Unicode filename encoding");
     }
 
     private static void avoidsWindowsReservedNames() {
         var entry = entry("Fixture.", "Area./CON.cs");
         check(Il2CppOutputPath.forClass(entry).equals(
-                Path.of("Fixture_", "Area_", "_CON.cpp")), "portable output path");
+                Path.of("Fixture~2E", "Area~2E", "~RCON.cpp")), "portable output path");
     }
 
     private static void rejectsInvalidSegments() {
         expectFailure(() -> Il2CppOutputPath.forClass(entry("Fixture", "Area//Actor.cs")));
     }
 
-    private static void disambiguatesSanitizedCollisions() throws IOException {
-        assertDisambiguated(entry("Fixture", "Actor?State.cs"),
-                entry("Fixture", "Actor*State.cs"), "Actor_State__");
+    private static void rejectsInvalidUnicode() {
+        var entry = new Il2CppClassCatalog.ClassEntry(
+                "Fixture", "Bad\ud800.cs", Path.of("synthetic"));
+        expectFailure(() -> Il2CppOutputPath.forClass(entry));
+    }
+
+    private static void keepsEncodedNamesDistinct() throws IOException {
+        var first = entry("Fixture", "Actor?State.cs");
+        var second = entry("Fixture", "Actor*State.cs");
+        Map<Il2CppClassCatalog.ClassEntry, Path> outputs =
+                Il2CppOutputPath.forClasses(List.of(first, second));
+        check(outputs.get(first).endsWith("Actor~3FState.cpp"), "question mark encoding");
+        check(outputs.get(second).endsWith("Actor~2AState.cpp"), "asterisk encoding");
+    }
+
+    private static void keepsUnicodeFormsDistinct() throws IOException {
+        var composed = entry("Fixture", "Caf\u00e9.cs");
+        var decomposed = entry("Fixture", "Cafe\u0301.cs");
+        Map<Il2CppClassCatalog.ClassEntry, Path> outputs =
+                Il2CppOutputPath.forClasses(List.of(composed, decomposed));
+        check(!portableKey(outputs.get(composed)).equals(portableKey(outputs.get(decomposed))),
+                "Unicode forms remain distinct");
+    }
+
+    private static void reservesEncoderMarkers() throws IOException {
+        var reserved = entry("Fixture", "CON.cs");
+        var literalMarker = entry("Fixture", "~RCON.cs");
+        Map<Il2CppClassCatalog.ClassEntry, Path> outputs =
+                Il2CppOutputPath.forClasses(List.of(reserved, literalMarker));
+        check(outputs.get(reserved).endsWith("~RCON.cpp"), "reserved name marker");
+        check(outputs.get(literalMarker).endsWith("~7ERCON.cpp"), "literal marker encoding");
     }
 
     private static void disambiguatesCaseCollisions() throws IOException {
         assertDisambiguated(entry("Fixture", "Actor.cs"),
-                entry("Fixture", "actor.cs"), "Actor__");
+                entry("Fixture", "actor.cs"), "Actor~C");
     }
 
-    private static void disambiguatesUnicodeEquivalentCollisions() throws IOException {
-        assertDisambiguated(entry("Fixture", "Caf\u00e9.cs"),
-                entry("Fixture", "Cafe\u0301.cs"), "Caf");
+    private static void disambiguatesFileDirectoryCollisions() throws IOException {
+        var file = entry("Fixture", "Area.cs");
+        var child = entry("Fixture", "Area.cpp/Actor.cs");
+        Map<Il2CppClassCatalog.ClassEntry, Path> outputs =
+                Il2CppOutputPath.forClasses(List.of(file, child));
+        Map<Il2CppClassCatalog.ClassEntry, Path> reversed =
+                Il2CppOutputPath.forClasses(List.of(child, file));
+        check(outputs.get(file).getFileName().toString().startsWith("Area~C"),
+                "file and directory collision suffix");
+        check(outputs.get(child).equals(Path.of("Fixture", "Area.cpp", "Actor.cpp")),
+                "nested output path");
+        check(outputs.get(file).equals(reversed.get(file)) &&
+                outputs.get(child).equals(reversed.get(child)),
+                "file and directory collision ordering");
+    }
+
+    private static void boundsLongComponents() throws IOException {
+        String prefix = "A".repeat(240);
+        var first = entry("Fixture", prefix + "1.cs");
+        var second = entry("Fixture", prefix + "2.cs");
+        Path firstPath = Il2CppOutputPath.forClass(first);
+        Path secondPath = Il2CppOutputPath.forClass(second);
+        check(firstPath.getFileName().toString().length() <=
+                PortableFilenameEncoder.MAX_COMPONENT_LENGTH, "bounded filename");
+        check(!firstPath.equals(secondPath), "long filenames remain distinct");
+        check(firstPath.getFileName().toString().contains("~H"), "truncation marker");
     }
 
     private static void remainsStableAcrossInputOrder() throws IOException {
@@ -118,9 +180,7 @@ public final class Il2CppOutputPathTest {
     }
 
     private static String portableKey(Path path) {
-        String portable = path.toString().replace('\\', '/');
-        return Normalizer.normalize(portable, Normalizer.Form.NFC)
-                .toLowerCase(Locale.ROOT);
+        return path.toString().replace('\\', '/').toLowerCase(Locale.ROOT);
     }
 
     private static void check(boolean condition, String message) {
