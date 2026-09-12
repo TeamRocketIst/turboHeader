@@ -8,8 +8,8 @@ import java.util.List;
 import ghidra.app.script.GhidraScript;
 import ghidra.program.model.listing.Function;
 import ghidra.program.model.symbol.SourceType;
-import turboheader.il2cpp.GhidraFunctionMatcher;
 import turboheader.il2cpp.Il2CppClassCatalog;
+import turboheader.il2cpp.decompile.GhidraFunctionMatcher;
 import turboheader.il2cpp.metadata.MethodAssemblyIdentity;
 
 public class VerifyTurboHeaderFunctionMatcher extends GhidraScript {

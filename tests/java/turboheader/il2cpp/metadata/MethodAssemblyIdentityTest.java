@@ -9,6 +9,8 @@ public final class MethodAssemblyIdentityTest {
         String updated = MethodAssemblyIdentity.write(comment, "Gameplay.Runtime");
         check(!updated.contains("Assembly-CSharp"), "replaces stale identity");
         check("Gameplay.Runtime".equals(MethodAssemblyIdentity.read(updated)), "updated identity");
+        check("assembly-csharp".equals(
+                MethodAssemblyIdentity.normalize(" Assembly-CSharp.dll ")), "normalization");
         System.out.println("method assembly identity tests passed");
     }
 

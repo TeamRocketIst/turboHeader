@@ -8,6 +8,8 @@ import ghidra.program.model.listing.Function;
 import ghidra.program.model.listing.Program;
 import ghidra.util.exception.CancelledException;
 import ghidra.util.task.TaskMonitor;
+import turboheader.il2cpp.decompile.Il2CppDecompilationCoordinator;
+import turboheader.il2cpp.decompile.Il2CppFunctionMatcher;
 
 public final class Il2CppExportWriter {
     private static final String SEPARATOR =

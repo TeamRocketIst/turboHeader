@@ -43,13 +43,13 @@ javac --release 21 -cp "$BUILD/classes" -d "$BUILD/classes" \
   "$ROOT/src/main/java/turboheader/il2cpp/Il2CppExportScope.java" \
   "$ROOT/src/main/java/turboheader/il2cpp/Il2CppClassCatalog.java" \
   "$ROOT/src/main/java/turboheader/il2cpp/Il2CppClassSelector.java" \
-  "$ROOT/src/main/java/turboheader/il2cpp/Il2CppFunctionMatcher.java" \
+  "$ROOT/src/main/java/turboheader/il2cpp/decompile/Il2CppFunctionMatcher.java" \
   "$ROOT/src/main/java/turboheader/il2cpp/Il2CppOutputPath.java" \
   "$ROOT/tests/java/turboheader/il2cpp/Il2CppClassCatalogTest.java" \
-  "$ROOT/tests/java/turboheader/il2cpp/Il2CppFunctionMatcherTest.java" \
+  "$ROOT/tests/java/turboheader/il2cpp/decompile/Il2CppFunctionMatcherTest.java" \
   "$ROOT/tests/java/turboheader/il2cpp/Il2CppOutputPathTest.java"
 java -cp "$BUILD/classes" turboheader.il2cpp.Il2CppClassCatalogTest
-java -cp "$BUILD/classes" turboheader.il2cpp.Il2CppFunctionMatcherTest
+java -cp "$BUILD/classes" turboheader.il2cpp.decompile.Il2CppFunctionMatcherTest
 java -cp "$BUILD/classes" turboheader.il2cpp.Il2CppOutputPathTest
 
 javac --release 21 -d "$BUILD/classes" \
@@ -71,7 +71,7 @@ if [[ -n "${GHIDRA_INSTALL_DIR:-}" ]]; then
   [[ -n "$GSON_JAR" ]] || { printf 'Gson jar not found under Ghidra\n' >&2; exit 1; }
   javac --release 21 -cp "$GSON_JAR:$BUILD/classes" -d "$BUILD/classes" \
     "$ROOT/src/main/java/turboheader/il2cpp/Il2CppExportScope.java" \
-    "$ROOT/src/main/java/turboheader/il2cpp/Il2CppDecompilationPolicy.java" \
+    "$ROOT/src/main/java/turboheader/il2cpp/decompile/Il2CppDecompilationPolicy.java" \
     "$ROOT/src/main/java/turboheader/il2cpp/HeadlessRequestReader.java" \
     "$ROOT/tests/java/turboheader/il2cpp/HeadlessRequestReaderTest.java" \
     "$ROOT/src/main/java/turboheader/il2cpp/metadata/ScriptMethodReader.java" \

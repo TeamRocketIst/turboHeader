@@ -1,4 +1,4 @@
-package turboheader.il2cpp;
+package turboheader.il2cpp.decompile;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
+import turboheader.il2cpp.Il2CppClassCatalog;
 import turboheader.il2cpp.metadata.MethodAssemblyIdentity;
 
 public final class Il2CppFunctionMatcher {
@@ -44,8 +45,8 @@ public final class Il2CppFunctionMatcher {
             String assembly = MethodAssemblyIdentity.read(function.comment());
             if (assembly != null) {
                 List<Il2CppClassCatalog.ClassEntry> sameAssembly = possible.stream()
-                        .filter(entry -> Il2CppClassSelector.normalizeAssembly(entry.assembly())
-                                .equals(Il2CppClassSelector.normalizeAssembly(assembly)))
+                        .filter(entry -> MethodAssemblyIdentity.normalize(entry.assembly())
+                                .equals(MethodAssemblyIdentity.normalize(assembly)))
                         .toList();
                 if (sameAssembly.isEmpty()) {
                     assemblyMismatches++;

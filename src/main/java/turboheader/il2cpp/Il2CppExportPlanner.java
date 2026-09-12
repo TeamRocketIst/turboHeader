@@ -13,6 +13,8 @@ import ghidra.program.model.listing.Function;
 import ghidra.program.model.listing.Program;
 import ghidra.util.exception.CancelledException;
 import ghidra.util.task.TaskMonitor;
+import turboheader.il2cpp.decompile.GhidraFunctionMatcher;
+import turboheader.il2cpp.decompile.Il2CppFunctionMatcher;
 
 public final class Il2CppExportPlanner {
     private static final List<String> PRESELECTED_ASSEMBLIES = List.of("*");

@@ -1,4 +1,4 @@
-package turboheader.il2cpp;
+package turboheader.il2cpp.decompile;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -13,6 +13,7 @@ import ghidra.program.model.listing.Program;
 import ghidra.program.model.symbol.Symbol;
 import ghidra.util.exception.CancelledException;
 import ghidra.util.task.TaskMonitor;
+import turboheader.il2cpp.Il2CppClassCatalog;
 
 public final class GhidraFunctionMatcher {
     private GhidraFunctionMatcher() {

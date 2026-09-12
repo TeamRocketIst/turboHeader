@@ -2,6 +2,7 @@ package turboheader.il2cpp.metadata;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 /** Stores an additive assembly identity in a Ghidra function comment. */
 public final class MethodAssemblyIdentity {
@@ -38,5 +39,13 @@ public final class MethodAssemblyIdentity {
         }
         lines.add(PREFIX + value);
         return String.join("\n", lines);
+    }
+
+    public static String normalize(String assembly) {
+        String normalized = assembly.trim();
+        if (normalized.toLowerCase(Locale.ROOT).endsWith(".dll")) {
+            normalized = normalized.substring(0, normalized.length() - 4);
+        }
+        return normalized.toLowerCase(Locale.ROOT);
     }
 }

@@ -23,6 +23,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
+import turboheader.il2cpp.metadata.MethodAssemblyIdentity;
+
 public final class Il2CppClassSelector {
     private static final int MAX_RULE_BYTES = 1024 * 1024;
     private static final int MAX_RULES = 4096;
@@ -73,7 +75,7 @@ public final class Il2CppClassSelector {
         Map<String, AssemblyDecision> decisions = new LinkedHashMap<>();
 
         for (var entry : classes) {
-            String key = normalizeAssembly(entry.assembly());
+            String key = MethodAssemblyIdentity.normalize(entry.assembly());
             AssemblyDecision decision = decisions.get(key);
             if (decision == null) {
                 decision = decideAssembly(entry.assembly(), scope, assemblySet, allAssemblies, rules);
@@ -88,8 +90,8 @@ public final class Il2CppClassSelector {
     }
 
     static boolean matchesFramework(String assembly, String rule) {
-        String value = normalizeAssembly(assembly);
-        String prefix = normalizeAssembly(rule);
+        String value = MethodAssemblyIdentity.normalize(assembly);
+        String prefix = MethodAssemblyIdentity.normalize(rule);
         return !prefix.isEmpty() && (value.equals(prefix) || value.startsWith(prefix + ".") ||
                 value.startsWith(prefix + "-"));
     }
@@ -100,7 +102,8 @@ public final class Il2CppClassSelector {
             return new AssemblyDecision(assembly, true, "all-assemblies mode");
         }
         if (scope == Il2CppExportScope.WHITELIST) {
-            boolean included = allAssemblies || whitelist.contains(normalizeAssembly(assembly));
+            boolean included = allAssemblies ||
+                    whitelist.contains(MethodAssemblyIdentity.normalize(assembly));
             String reason = included ? "selected by whitelist" : "not present in selected assemblies";
             return new AssemblyDecision(assembly, included, reason);
         }
@@ -110,8 +113,8 @@ public final class Il2CppClassSelector {
             if (!matchesFramework(assembly, rule.name())) {
                 continue;
             }
-            if (match == null || normalizeAssembly(rule.name()).length() >
-                    normalizeAssembly(match.name()).length()) {
+            if (match == null || MethodAssemblyIdentity.normalize(rule.name()).length() >
+                    MethodAssemblyIdentity.normalize(match.name()).length()) {
                 match = rule;
             }
         }
@@ -129,7 +132,7 @@ public final class Il2CppClassSelector {
 
     private static Set<String> normalizeAssemblies(List<String> values) {
         Set<String> result = new LinkedHashSet<>();
-        values.stream().map(Il2CppClassSelector::normalizeAssembly).forEach(result::add);
+        values.stream().map(MethodAssemblyIdentity::normalize).forEach(result::add);
         return result;
     }
 
@@ -166,7 +169,7 @@ public final class Il2CppClassSelector {
     private static void addRules(Map<String, FrameworkRule> target, List<String> values,
             String source) {
         for (String value : values) {
-            String normalized = normalizeAssembly(value);
+            String normalized = MethodAssemblyIdentity.normalize(value);
             if (!normalized.isEmpty()) {
                 target.putIfAbsent(normalized, new FrameworkRule(value.trim(), source));
             }
@@ -216,14 +219,6 @@ public final class Il2CppClassSelector {
             }
         }
         return rules;
-    }
-
-    static String normalizeAssembly(String value) {
-        String normalized = value.trim();
-        if (normalized.toLowerCase(Locale.ROOT).endsWith(".dll")) {
-            normalized = normalized.substring(0, normalized.length() - 4);
-        }
-        return normalized.toLowerCase(Locale.ROOT);
     }
 
     public record FrameworkRule(String name, String source) {

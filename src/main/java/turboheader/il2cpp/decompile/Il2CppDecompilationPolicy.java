@@ -1,4 +1,4 @@
-package turboheader.il2cpp;
+package turboheader.il2cpp.decompile;
 
 public final class Il2CppDecompilationPolicy {
     public static final int LEGACY_SEQUENTIAL = 0;

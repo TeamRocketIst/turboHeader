@@ -21,6 +21,7 @@ import java.util.Set;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonToken;
 import com.google.gson.stream.MalformedJsonException;
+import turboheader.il2cpp.decompile.Il2CppDecompilationPolicy;
 
 public final class HeadlessRequestReader {
     private static final int MAX_MANIFEST_BYTES = 1024 * 1024;

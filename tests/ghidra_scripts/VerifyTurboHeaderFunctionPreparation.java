@@ -11,7 +11,7 @@ import turboheader.il2cpp.HeadlessRequestReader;
 import turboheader.il2cpp.Il2CppClassCatalog;
 import turboheader.il2cpp.Il2CppExportPlanner;
 import turboheader.il2cpp.Il2CppExportScope;
-import turboheader.il2cpp.Il2CppFunctionPreparationService;
+import turboheader.il2cpp.decompile.Il2CppFunctionPreparationService;
 
 public class VerifyTurboHeaderFunctionPreparation extends GhidraScript {
     @Override

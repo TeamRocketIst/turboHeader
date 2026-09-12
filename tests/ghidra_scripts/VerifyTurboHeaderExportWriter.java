@@ -15,12 +15,12 @@ import ghidra.program.model.listing.Function;
 import turboheader.il2cpp.HeadlessRequestReader;
 import turboheader.il2cpp.Il2CppClassCatalog;
 import turboheader.il2cpp.Il2CppClassSelector;
-import turboheader.il2cpp.Il2CppDecompilationCoordinator;
 import turboheader.il2cpp.Il2CppExportPlanner;
 import turboheader.il2cpp.Il2CppExportScope;
 import turboheader.il2cpp.Il2CppExportWriter;
-import turboheader.il2cpp.Il2CppFunctionMatcher;
-import turboheader.il2cpp.Il2CppFunctionPreparationService;
+import turboheader.il2cpp.decompile.Il2CppDecompilationCoordinator;
+import turboheader.il2cpp.decompile.Il2CppFunctionMatcher;
+import turboheader.il2cpp.decompile.Il2CppFunctionPreparationService;
 
 public class VerifyTurboHeaderExportWriter extends GhidraScript {
     @Override

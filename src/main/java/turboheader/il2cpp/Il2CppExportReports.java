@@ -11,6 +11,8 @@ import java.util.Locale;
 import ghidra.program.model.listing.Program;
 import ghidra.util.exception.CancelledException;
 import ghidra.util.task.TaskMonitor;
+import turboheader.il2cpp.decompile.Il2CppDecompilationCoordinator;
+import turboheader.il2cpp.decompile.Il2CppDecompilerService;
 
 final class Il2CppExportReports {
     private Il2CppExportReports() {

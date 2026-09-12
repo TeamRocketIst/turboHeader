@@ -1,4 +1,4 @@
-package turboheader.il2cpp;
+package turboheader.il2cpp.decompile;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -11,6 +11,7 @@ import ghidra.program.model.address.Address;
 import ghidra.program.model.listing.Function;
 import ghidra.program.model.listing.Program;
 import ghidra.util.task.TaskMonitor;
+import turboheader.il2cpp.Il2CppExportPlanner;
 
 public final class Il2CppDecompilationCoordinator {
     private Il2CppDecompilationCoordinator() {

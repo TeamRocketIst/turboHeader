@@ -6,10 +6,10 @@ import java.util.List;
 import ghidra.app.script.GhidraScript;
 import ghidra.program.model.listing.Function;
 import turboheader.il2cpp.Il2CppClassCatalog;
-import turboheader.il2cpp.Il2CppDecompilationCoordinator;
 import turboheader.il2cpp.analysis.Il2CppExportAnalysisService;
 import turboheader.il2cpp.Il2CppExportPlanner;
-import turboheader.il2cpp.Il2CppFunctionPreparationService;
+import turboheader.il2cpp.decompile.Il2CppDecompilationCoordinator;
+import turboheader.il2cpp.decompile.Il2CppFunctionPreparationService;
 
 public class VerifyTurboHeaderExportAnalysis extends GhidraScript {
     @Override
