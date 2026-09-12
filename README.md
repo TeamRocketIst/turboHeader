@@ -77,7 +77,7 @@ The pointer size is detected automatically from the `libil2cpp.so` program impor
 
 ## Run
 
-Install the wrapper in a virtual environment after installing TurboHeader:
+Install the [wrapper](https://github.com/TeamRocketIst/il2cpp-ghidrah) in a virtual environment after installing TurboHeader:
 
 ```sh
 python3 -m venv .venv
@@ -91,7 +91,6 @@ Then run the default TurboHeader workflow:
 ```sh
 il2cpp-ghidrah run /path/to/libil2cpp.so \
   -M /path/to/global-metadata.dat \
-  -g dumper \
   -u 2022.3.62f3 \
   -o output
 ```
