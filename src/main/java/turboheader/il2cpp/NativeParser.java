@@ -4,6 +4,9 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+import turboheader.il2cpp.model.ModelDecoder;
+import turboheader.il2cpp.model.TypeModel;
+
 /** JNI entry point for the high-throughput C parser. */
 public final class NativeParser {
     private static final int EXPECTED_NATIVE_API_VERSION = 4;

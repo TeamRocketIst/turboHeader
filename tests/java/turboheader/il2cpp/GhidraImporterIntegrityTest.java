@@ -1,8 +1,8 @@
 package turboheader.il2cpp;
 
-import static turboheader.il2cpp.TypeModel.FieldDef;
-import static turboheader.il2cpp.TypeModel.Model;
-import static turboheader.il2cpp.TypeModel.StructDef;
+import static turboheader.il2cpp.model.TypeModel.FieldDef;
+import static turboheader.il2cpp.model.TypeModel.Model;
+import static turboheader.il2cpp.model.TypeModel.StructDef;
 
 import java.util.List;
 import java.util.Set;
@@ -19,6 +19,7 @@ import ghidra.program.model.data.StructureDataType;
 import ghidra.program.model.listing.Program;
 import ghidra.util.exception.CancelledException;
 import ghidra.util.task.TaskMonitor;
+import turboheader.il2cpp.model.TypeModel;
 
 public final class GhidraImporterIntegrityTest {
     public static void main(String[] args) throws Exception {

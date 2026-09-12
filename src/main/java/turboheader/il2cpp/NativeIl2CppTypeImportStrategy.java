@@ -6,6 +6,7 @@ import java.util.function.Consumer;
 
 import ghidra.program.model.listing.Program;
 import ghidra.util.task.TaskMonitor;
+import turboheader.il2cpp.model.TypeModel;
 
 /** Imports a TypeModel produced by the native IL2CPP parser. */
 public final class NativeIl2CppTypeImportStrategy implements Il2CppTypeImportStrategy {

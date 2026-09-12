@@ -24,12 +24,12 @@ javac --release 21 -d "$BUILD/classes" \
   "$ROOT/tests/java/turboheader/il2cpp/CParserHeaderAdapterTest.java" \
   "$ROOT/src/main/java/turboheader/il2cpp/MethodAssemblyIdentity.java" \
   "$ROOT/tests/java/turboheader/il2cpp/MethodAssemblyIdentityTest.java" \
-  "$ROOT/src/main/java/turboheader/il2cpp/TypeModel.java" \
-  "$ROOT/src/main/java/turboheader/il2cpp/ModelDecoder.java" \
+  "$ROOT/src/main/java/turboheader/il2cpp/model/TypeModel.java" \
+  "$ROOT/src/main/java/turboheader/il2cpp/model/ModelDecoder.java" \
   "$ROOT/src/main/java/turboheader/il2cpp/NativeLibraryLoader.java" \
   "$ROOT/src/main/java/turboheader/il2cpp/NativeParser.java" \
   "$ROOT/src/main/java/turboheader/il2cpp/ModelDumpCli.java" \
-  "$ROOT/tests/java/turboheader/il2cpp/CoreSmokeTest.java" \
+  "$ROOT/tests/java/turboheader/il2cpp/model/CoreSmokeTest.java" \
   "$ROOT/tests/java/turboheader/il2cpp/JniSmokeTest.java"
 java -cp "$BUILD/classes" turboheader.il2cpp.ImportDiagnosticsTest
 java -cp "$BUILD/classes" turboheader.il2cpp.CParserHeaderAdapterTest
@@ -85,7 +85,7 @@ if [[ "${TURBOHEADER_JNI_ONLY:-0}" != "1" ]]; then
   MODEL="$BUILD/sample.i2gf"
   "$NATIVE_BUILD/il2cpp_native_cli" \
     "$ROOT/tests/fixtures/sample.h" "$ROOT/tests/fixtures/type_offsets.json" "$MODEL" 8 >/dev/null
-  java -cp "$BUILD/classes" turboheader.il2cpp.CoreSmokeTest "$MODEL"
+  java -cp "$BUILD/classes" turboheader.il2cpp.model.CoreSmokeTest "$MODEL"
 fi
 NATIVE_LIBRARY="$(find_native_library "$NATIVE_BUILD")"
 java -Xcheck:jni -Dturboheader.il2cpp.native="$NATIVE_LIBRARY" \

@@ -1,5 +1,7 @@
 package turboheader.il2cpp;
 
+import turboheader.il2cpp.model.TypeModel;
+
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Map;

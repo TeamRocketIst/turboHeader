@@ -1,5 +1,7 @@
 package turboheader.il2cpp;
 
+import turboheader.il2cpp.model.TypeModel;
+
 import java.nio.file.Path;
 
 /** Small non-Ghidra smoke-test utility for JNI and model decoding. */

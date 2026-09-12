@@ -23,9 +23,9 @@ import ghidra.util.exception.CancelledException;
 import ghidra.util.task.TaskMonitorAdapter;
 import turboheader.il2cpp.GhidraTypeImporter;
 import turboheader.il2cpp.NativeParser;
-import turboheader.il2cpp.TypeModel.FieldDef;
-import turboheader.il2cpp.TypeModel.Model;
-import turboheader.il2cpp.TypeModel.StructDef;
+import turboheader.il2cpp.model.TypeModel.FieldDef;
+import turboheader.il2cpp.model.TypeModel.Model;
+import turboheader.il2cpp.model.TypeModel.StructDef;
 
 public class VerifyTurboHeaderTransactions extends GhidraScript {
     private static final CategoryPath ROOT = new CategoryPath("/IL2CPP");

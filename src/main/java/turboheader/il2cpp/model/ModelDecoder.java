@@ -1,11 +1,11 @@
-package turboheader.il2cpp;
+package turboheader.il2cpp.model;
 
-import static turboheader.il2cpp.TypeModel.FieldDef;
-import static turboheader.il2cpp.TypeModel.MissingOffsetReasons;
-import static turboheader.il2cpp.TypeModel.Model;
-import static turboheader.il2cpp.TypeModel.LayoutEvidence;
-import static turboheader.il2cpp.TypeModel.OffsetSource;
-import static turboheader.il2cpp.TypeModel.StructDef;
+import static turboheader.il2cpp.model.TypeModel.FieldDef;
+import static turboheader.il2cpp.model.TypeModel.MissingOffsetReasons;
+import static turboheader.il2cpp.model.TypeModel.Model;
+import static turboheader.il2cpp.model.TypeModel.LayoutEvidence;
+import static turboheader.il2cpp.model.TypeModel.OffsetSource;
+import static turboheader.il2cpp.model.TypeModel.StructDef;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;

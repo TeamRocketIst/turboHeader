@@ -1,4 +1,4 @@
-package turboheader.il2cpp;
+package turboheader.il2cpp.model;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;

@@ -1,9 +1,9 @@
 package turboheader.il2cpp;
 
-import static turboheader.il2cpp.TypeModel.FieldDef;
-import static turboheader.il2cpp.TypeModel.LayoutEvidence;
-import static turboheader.il2cpp.TypeModel.Model;
-import static turboheader.il2cpp.TypeModel.StructDef;
+import static turboheader.il2cpp.model.TypeModel.FieldDef;
+import static turboheader.il2cpp.model.TypeModel.LayoutEvidence;
+import static turboheader.il2cpp.model.TypeModel.Model;
+import static turboheader.il2cpp.model.TypeModel.StructDef;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -44,6 +44,7 @@ import ghidra.program.model.data.VoidDataType;
 import ghidra.program.model.listing.Program;
 import ghidra.util.exception.CancelledException;
 import ghidra.util.task.TaskMonitor;
+import turboheader.il2cpp.model.TypeModel;
 
 /**
  * Imports an already-parsed IL2CPP model with one transaction and bulk shell creation.

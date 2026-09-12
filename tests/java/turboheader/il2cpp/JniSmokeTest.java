@@ -1,5 +1,7 @@
 package turboheader.il2cpp;
 
+import turboheader.il2cpp.model.TypeModel;
+
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.file.Files;
