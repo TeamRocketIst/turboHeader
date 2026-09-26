@@ -14,6 +14,8 @@ import turboheader.il2cpp.metadata.GhidraMethodImporter;
 import turboheader.il2cpp.metadata.GhidraMethodMetadataImporter;
 import turboheader.il2cpp.metadata.GhidraRelocationImporter;
 import turboheader.il2cpp.metadata.GhidraStringImporter;
+import turboheader.il2cpp.metadata.Il2CppDelegateSignatureCatalog;
+import turboheader.il2cpp.metadata.Il2CppDelegateSignatureStore;
 import turboheader.il2cpp.metadata.Il2CppInterfaceDispatchCatalog;
 import turboheader.il2cpp.metadata.Il2CppInterfaceDispatchStore;
 import turboheader.il2cpp.metadata.ScriptMethodReader;
@@ -37,14 +39,17 @@ public final class Il2CppMetadataImportService {
         output.accept("TurboHeader: reading script metadata...");
         var scriptData = ScriptMethodReader.readAll(script);
         var interfaceDispatch = Il2CppInterfaceDispatchCatalog.fromScript(scriptData);
+        var delegateSignatures = Il2CppDelegateSignatureCatalog.fromScript(scriptData);
         int interfaceDispatchEntries = interfaceDispatch
                 .map(catalog -> catalog.methodAddresses().size()).orElse(0);
+        int delegateSignatureEntries = delegateSignatures
+                .map(catalog -> catalog.entries().size()).orElse(0);
         output.accept(String.format(
                 "TurboHeader script: %,d strings, %,d metadata slots, %,d method slots, " +
-                "%,d methods, %,d interface dispatch entries.",
+                "%,d methods, %,d interface dispatch entries, %,d delegate signatures.",
                 scriptData.strings().size(), scriptData.metadata().size(),
                 scriptData.metadataMethods().size(), scriptData.methods().size(),
-                interfaceDispatchEntries));
+                interfaceDispatchEntries, delegateSignatureEntries));
 
         var stringResult = new GhidraStringImporter(program, monitor)
                 .importStrings(scriptData.strings());
@@ -145,6 +150,11 @@ public final class Il2CppMetadataImportService {
                 ? String.format("TurboHeader interface dispatch: %,d entries stored.",
                         interfaceDispatchEntries)
                 : "TurboHeader interface dispatch: not supplied.");
+        Il2CppDelegateSignatureStore.replace(program, delegateSignatures);
+        output.accept(delegateSignatures.isPresent()
+                ? String.format("TurboHeader delegate signatures: %,d entries stored.",
+                        delegateSignatureEntries)
+                : "TurboHeader delegate signatures: not supplied.");
     }
 
     private void reportFailures(String countPrefix, String samplePrefix,
