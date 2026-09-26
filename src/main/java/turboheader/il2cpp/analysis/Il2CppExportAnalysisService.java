@@ -17,6 +17,7 @@ import turboheader.il2cpp.analysis.interfacecall.Il2CppInterfaceCallAnalyzer;
 import turboheader.il2cpp.analysis.interfacecall.Il2CppInterfaceCallPublisher;
 import turboheader.il2cpp.analysis.helpers.Il2CppExportedHelperAnalyzer;
 import turboheader.il2cpp.analysis.helpers.Il2CppRuntimeMetadataAnalyzer;
+import turboheader.il2cpp.analysis.noreturn.Il2CppNoreturnAnalyzer;
 
 public final class Il2CppExportAnalysisService {
     private static final List<String> GLOBAL_ANALYZERS = List.of(

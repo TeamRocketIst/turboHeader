@@ -7,7 +7,7 @@ import java.util.function.Consumer;
 import ghidra.program.model.listing.Program;
 import ghidra.util.task.TaskMonitor;
 import turboheader.il2cpp.analysis.Il2CppExportAnalysisService;
-import turboheader.il2cpp.analysis.Il2CppNoreturnAnalyzer;
+import turboheader.il2cpp.analysis.noreturn.Il2CppNoreturnAnalyzer;
 import turboheader.il2cpp.decompile.Il2CppDecompilationCoordinator;
 import turboheader.il2cpp.decompile.Il2CppDecompilationPolicy;
 import turboheader.il2cpp.decompile.Il2CppDecompilerService;

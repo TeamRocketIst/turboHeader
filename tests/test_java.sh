@@ -80,15 +80,15 @@ javac --release 21 -cp "$BUILD/classes" -d "$BUILD/classes" \
   "$ROOT/src/main/java/turboheader/il2cpp/analysis/architecture/aarch64/Aarch64Architecture.java" \
   "$ROOT/src/main/java/turboheader/il2cpp/analysis/architecture/aarch64/Aarch64ControlFlowDecoder.java" \
   "$ROOT/src/main/java/turboheader/il2cpp/analysis/architecture/aarch64/Aarch64InterfaceDispatchProof.java" \
-  "$ROOT/src/main/java/turboheader/il2cpp/analysis/NoreturnSeedReader.java" \
-  "$ROOT/src/main/java/turboheader/il2cpp/analysis/NoreturnProofEngine.java" \
+  "$ROOT/src/main/java/turboheader/il2cpp/analysis/noreturn/NoreturnSeedReader.java" \
+  "$ROOT/src/main/java/turboheader/il2cpp/analysis/noreturn/NoreturnProofEngine.java" \
   "$ROOT/tests/java/turboheader/il2cpp/analysis/architecture/aarch64/Aarch64InterfaceDispatchProofTest.java" \
-  "$ROOT/tests/java/turboheader/il2cpp/analysis/NoreturnProofEngineTest.java" \
-  "$ROOT/tests/java/turboheader/il2cpp/analysis/NoreturnSeedReaderTest.java"
+  "$ROOT/tests/java/turboheader/il2cpp/analysis/noreturn/NoreturnProofEngineTest.java" \
+  "$ROOT/tests/java/turboheader/il2cpp/analysis/noreturn/NoreturnSeedReaderTest.java"
 java -cp "$BUILD/classes" \
   turboheader.il2cpp.analysis.architecture.aarch64.Aarch64InterfaceDispatchProofTest
-java -cp "$BUILD/classes" turboheader.il2cpp.analysis.NoreturnProofEngineTest
-java -cp "$BUILD/classes" turboheader.il2cpp.analysis.NoreturnSeedReaderTest
+java -cp "$BUILD/classes" turboheader.il2cpp.analysis.noreturn.NoreturnProofEngineTest
+java -cp "$BUILD/classes" turboheader.il2cpp.analysis.noreturn.NoreturnSeedReaderTest
 
 if [[ -n "${GHIDRA_INSTALL_DIR:-}" ]]; then
   GSON_JAR="$(find "$GHIDRA_INSTALL_DIR/Ghidra" -name 'gson-*.jar' -type f | head -n 1)"
