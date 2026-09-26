@@ -1,5 +1,7 @@
 package turboheader.il2cpp.analysis;
 
+import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.List;
@@ -9,89 +11,142 @@ import java.util.Set;
 
 final class ExactSsaValueResolver<N> {
     private static final int MAX_VALUES = 128;
+    private static final int MAX_EDGES = MAX_VALUES * MAX_VALUES;
+    private static final int MAX_STATE_CHANGES = MAX_VALUES * 3;
 
     private final ValueGraph<N> graph;
-    private final Map<N, Origin> resolved = new IdentityHashMap<>();
-    private final Set<N> active = Collections.newSetFromMap(new IdentityHashMap<>());
-    private int visited;
 
     ExactSsaValueResolver(ValueGraph<N> graph) {
         this.graph = Objects.requireNonNull(graph, "graph");
     }
 
-    Origin resolve(N node) {
-        if (node == null) {
-            return Origin.unknown();
-        }
-        Origin known = resolved.get(node);
-        if (known != null) {
-            return known;
-        }
-        if (visited >= MAX_VALUES || !active.add(node)) {
+    Origin resolve(N root) {
+        if (root == null) {
             return Origin.unknown();
         }
 
-        visited++;
-        Origin result;
-        try {
-            result = evaluate(Objects.requireNonNull(graph.describe(node), "value"));
+        Graph<N> reachable = collect(root);
+        if (reachable == null) {
+            return Origin.unknown();
         }
-        finally {
-            active.remove(node);
+
+        Map<N, Origin> origins = new IdentityHashMap<>();
+        for (N node : reachable.nodes()) {
+            origins.put(node, Origin.unset());
         }
-        resolved.put(node, result);
-        return result;
+
+        var pending = new ArrayDeque<N>(reachable.nodes());
+        Set<N> queued = Collections.newSetFromMap(new IdentityHashMap<>());
+        queued.addAll(reachable.nodes());
+        int stateChanges = 0;
+        while (!pending.isEmpty()) {
+            N node = pending.removeFirst();
+            queued.remove(node);
+            Origin previous = origins.get(node);
+            Origin candidate = evaluate(reachable.values().get(node), origins);
+            Origin next = join(previous, candidate);
+            if (next.equals(previous)) {
+                continue;
+            }
+            if (++stateChanges > MAX_STATE_CHANGES) {
+                return Origin.unknown();
+            }
+            origins.put(node, next);
+            for (N dependent : reachable.dependents().getOrDefault(node, List.of())) {
+                if (queued.add(dependent)) {
+                    pending.addLast(dependent);
+                }
+            }
+        }
+
+        Origin result = origins.get(root);
+        return result.kind() == Kind.UNSET ? Origin.unknown() : result;
     }
 
-    private Origin evaluate(Value<N> value) {
+    private Graph<N> collect(N root) {
+        List<N> nodes = new ArrayList<>();
+        Map<N, Value<N>> values = new IdentityHashMap<>();
+        Map<N, List<N>> dependents = new IdentityHashMap<>();
+        Set<N> discovered = Collections.newSetFromMap(new IdentityHashMap<>());
+        var pending = new ArrayDeque<N>();
+        discovered.add(root);
+        pending.add(root);
+        int edges = 0;
+
+        while (!pending.isEmpty()) {
+            N node = pending.removeFirst();
+            Value<N> value = Objects.requireNonNull(graph.describe(node), "value");
+            nodes.add(node);
+            values.put(node, value);
+            for (N input : value.inputs()) {
+                if (++edges > MAX_EDGES) {
+                    return null;
+                }
+                dependents.computeIfAbsent(input, ignored -> new ArrayList<>()).add(node);
+                if (discovered.add(input)) {
+                    if (discovered.size() > MAX_VALUES) {
+                        return null;
+                    }
+                    pending.addLast(input);
+                }
+            }
+        }
+        return new Graph<>(List.copyOf(nodes), values, dependents);
+    }
+
+    private Origin evaluate(Value<N> value, Map<N, Origin> origins) {
         return switch (value.operation()) {
             case UNKNOWN -> Origin.unknown();
             case EXACT_TYPE -> value.value() >= 0 && value.value() <= Integer.MAX_VALUE
                     ? new Origin(Kind.EXACT_TYPE, value.value())
                     : Origin.unknown();
             case EXACT_CONSTANT -> new Origin(Kind.EXACT_CONSTANT, value.value());
-            case ALLOCATION -> allocation(value.inputs());
+            case ALLOCATION -> allocation(value.inputs(), origins);
             case COPY -> value.inputs().size() == 1
-                    ? resolve(value.inputs().getFirst())
+                    ? origins.get(value.inputs().getFirst())
                     : Origin.unknown();
-            case MERGE -> merge(value.inputs());
+            case MERGE -> merge(value.inputs(), origins);
         };
     }
 
-    private Origin allocation(List<N> inputs) {
+    private Origin allocation(List<N> inputs, Map<N, Origin> origins) {
         if (inputs.size() != 1) {
             return Origin.unknown();
         }
-        Origin type = resolve(inputs.getFirst());
-        return type.kind() == Kind.EXACT_TYPE
-                ? new Origin(Kind.EXACT_ALLOCATION, type.value())
-                : Origin.unknown();
+        Origin type = origins.get(inputs.getFirst());
+        return switch (type.kind()) {
+            case UNSET -> Origin.unset();
+            case EXACT_TYPE -> new Origin(Kind.EXACT_ALLOCATION, type.value());
+            case CONFLICT -> Origin.conflict();
+            default -> Origin.unknown();
+        };
     }
 
-    private Origin merge(List<N> inputs) {
+    private Origin merge(List<N> inputs, Map<N, Origin> origins) {
         if (inputs.isEmpty()) {
             return Origin.unknown();
         }
-
-        Origin exact = null;
-        boolean unknown = false;
+        Origin result = Origin.unset();
         for (N input : inputs) {
-            Origin origin = resolve(input);
-            if (origin.kind() == Kind.CONFLICT) {
-                return Origin.conflict();
-            }
-            if (origin.kind() == Kind.UNKNOWN) {
-                unknown = true;
-                continue;
-            }
-            if (exact == null) {
-                exact = origin;
-            }
-            else if (!exact.equals(origin)) {
-                return Origin.conflict();
-            }
+            result = join(result, origins.get(input));
         }
-        return unknown || exact == null ? Origin.unknown() : exact;
+        return result;
+    }
+
+    private Origin join(Origin first, Origin second) {
+        if (first.equals(second) || second.kind() == Kind.UNSET) {
+            return first;
+        }
+        if (first.kind() == Kind.UNSET) {
+            return second;
+        }
+        if (first.kind() == Kind.UNKNOWN || second.kind() == Kind.UNKNOWN) {
+            return Origin.unknown();
+        }
+        if (first.kind() == Kind.CONFLICT || second.kind() == Kind.CONFLICT) {
+            return Origin.conflict();
+        }
+        return Origin.conflict();
     }
 
     enum Operation {
@@ -104,6 +159,7 @@ final class ExactSsaValueResolver<N> {
     }
 
     enum Kind {
+        UNSET,
         UNKNOWN,
         EXACT_TYPE,
         EXACT_CONSTANT,
@@ -114,6 +170,10 @@ final class ExactSsaValueResolver<N> {
     record Origin(Kind kind, long value) {
         Origin {
             Objects.requireNonNull(kind, "kind");
+        }
+
+        static Origin unset() {
+            return new Origin(Kind.UNSET, 0);
         }
 
         static Origin unknown() {
@@ -134,5 +194,9 @@ final class ExactSsaValueResolver<N> {
 
     interface ValueGraph<N> {
         Value<N> describe(N node);
+    }
+
+    private record Graph<N>(List<N> nodes, Map<N, Value<N>> values,
+            Map<N, List<N>> dependents) {
     }
 }

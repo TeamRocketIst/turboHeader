@@ -160,9 +160,10 @@ final class GhidraPcodeInterfaceCallResolver {
         if (operation.getNumInputs() != 2) {
             return unknown();
         }
-        OptionalInt typeId = metadataType(operation.getInput(1));
-        return typeId.isPresent()
-                ? exact(ExactSsaValueResolver.Operation.EXACT_TYPE, typeId.getAsInt())
+        var origin = new ExactSsaValueResolver<Varnode>(
+                this::describeMetadataAddress).resolve(operation.getInput(1));
+        return origin.kind() == ExactSsaValueResolver.Kind.EXACT_TYPE
+                ? exact(ExactSsaValueResolver.Operation.EXACT_TYPE, origin.value())
                 : unknown();
     }
 
@@ -175,23 +176,24 @@ final class GhidraPcodeInterfaceCallResolver {
                 List.of(operation.getInput(1)));
     }
 
-    private OptionalInt metadataType(Varnode value) {
-        Set<Varnode> visited = Collections.newSetFromMap(new IdentityHashMap<>());
-        Varnode current = value;
-        while (current != null && visited.size() < MAX_ADDRESS_VALUES &&
-                visited.add(current)) {
-            if (current.isConstant() || current.getAddress().isMemoryAddress()) {
-                Integer typeId = typeIdsByAddress.get(current.getOffset());
-                return typeId == null ? OptionalInt.empty() : OptionalInt.of(typeId);
-            }
-            PcodeOp definition = current.getDef();
-            if (definition == null || definition.getNumInputs() != 1 ||
-                    !isTransparent(definition.getOpcode())) {
-                return OptionalInt.empty();
-            }
-            current = definition.getInput(0);
+    private ExactSsaValueResolver.Value<Varnode> describeMetadataAddress(Varnode value) {
+        if (value.isConstant() || value.getAddress().isMemoryAddress()) {
+            Integer typeId = typeIdsByAddress.get(value.getOffset());
+            return typeId == null
+                    ? unknown()
+                    : exact(ExactSsaValueResolver.Operation.EXACT_TYPE, typeId);
         }
-        return OptionalInt.empty();
+        PcodeOp definition = value.getDef();
+        if (definition == null) {
+            return unknown();
+        }
+        if (isTransparent(definition.getOpcode()) && definition.getNumInputs() == 1) {
+            return operation(ExactSsaValueResolver.Operation.COPY, definition);
+        }
+        if (definition.getOpcode() == PcodeOp.MULTIEQUAL) {
+            return operation(ExactSsaValueResolver.Operation.MERGE, definition);
+        }
+        return unknown();
     }
 
     private OptionalInt metadataTypeValue(Varnode value) {

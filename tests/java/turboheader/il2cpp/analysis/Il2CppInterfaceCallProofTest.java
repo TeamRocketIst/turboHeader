@@ -12,6 +12,7 @@ public final class Il2CppInterfaceCallProofTest {
     public static void main(String[] args) {
         acceptsExactOrigins();
         acceptsCopiesAndEqualMerges();
+        acceptsLoopCarriedTypeInfo();
         rejectsUnknownAndConflictingReceivers();
         rejectsInexactInterfaceAndSlotValues();
         rejectsMissingAndInvalidTargets();
@@ -38,6 +39,16 @@ public final class Il2CppInterfaceCallProofTest {
         require(resolve(receiver, interfaceType, slot, lookup(7, 3, 1, TARGET))
                 .status() == Il2CppInterfaceCallProof.Status.PROVEN,
                 "equal SSA origins should remain exact");
+    }
+
+    private static void acceptsLoopCarriedTypeInfo() {
+        Node loopType = merge();
+        Node backedge = copy(loopType);
+        loopType.inputs = List.of(type(7), backedge);
+        Node receiver = allocation(loopType);
+        require(resolve(receiver, type(3), constant(1), lookup(7, 3, 1, TARGET))
+                .status() == Il2CppInterfaceCallProof.Status.PROVEN,
+                "loop-carried TypeInfo should reach a fixed point");
     }
 
     private static void rejectsUnknownAndConflictingReceivers() {
