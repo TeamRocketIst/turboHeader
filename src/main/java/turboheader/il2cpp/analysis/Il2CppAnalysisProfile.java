@@ -11,6 +11,7 @@ import ghidra.app.plugin.core.analysis.AutoAnalysisManager;
 import ghidra.framework.options.OptionType;
 import ghidra.framework.options.Options;
 import ghidra.program.model.listing.Program;
+import turboheader.il2cpp.analysis.architecture.Il2CppArchitectureSupport;
 
 public final class Il2CppAnalysisProfile {
     private static final List<String> ANALYZERS = List.of(

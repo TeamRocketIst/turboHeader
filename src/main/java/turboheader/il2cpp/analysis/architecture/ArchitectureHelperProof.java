@@ -1,11 +1,12 @@
-package turboheader.il2cpp.analysis;
+package turboheader.il2cpp.analysis.architecture;
 
 import java.util.List;
 import java.util.Objects;
 import java.util.OptionalInt;
 import java.util.Set;
+import turboheader.il2cpp.analysis.Il2CppHelperKind;
 
-interface ArchitectureHelperProof {
+public interface ArchitectureHelperProof {
     Result analyze(Input input);
 
     interface ExecutableWords {
@@ -31,7 +32,7 @@ interface ArchitectureHelperProof {
             instructions = List.copyOf(instructions);
         }
 
-        boolean contains(long address) {
+        public boolean contains(long address) {
             return Long.compareUnsigned(address, entry) >= 0 &&
                     Long.compareUnsigned(address, endExclusive) < 0;
         }

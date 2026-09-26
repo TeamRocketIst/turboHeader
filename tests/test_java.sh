@@ -75,16 +75,18 @@ javac --release 21 -d "$BUILD/classes" \
 java -cp "$BUILD/classes" turboheader.il2cpp.types.CFunctionSignatureParserTest
 
 javac --release 21 -cp "$BUILD/classes" -d "$BUILD/classes" \
-  "$ROOT/src/main/java/turboheader/il2cpp/analysis/ArchitectureHelperProof.java" \
-  "$ROOT/src/main/java/turboheader/il2cpp/analysis/ControlFlowDecoder.java" \
-  "$ROOT/src/main/java/turboheader/il2cpp/analysis/Aarch64ControlFlowDecoder.java" \
-  "$ROOT/src/main/java/turboheader/il2cpp/analysis/Aarch64InterfaceDispatchProof.java" \
+  "$ROOT/src/main/java/turboheader/il2cpp/analysis/architecture/ArchitectureHelperProof.java" \
+  "$ROOT/src/main/java/turboheader/il2cpp/analysis/architecture/ControlFlowDecoder.java" \
+  "$ROOT/src/main/java/turboheader/il2cpp/analysis/architecture/aarch64/Aarch64Architecture.java" \
+  "$ROOT/src/main/java/turboheader/il2cpp/analysis/architecture/aarch64/Aarch64ControlFlowDecoder.java" \
+  "$ROOT/src/main/java/turboheader/il2cpp/analysis/architecture/aarch64/Aarch64InterfaceDispatchProof.java" \
   "$ROOT/src/main/java/turboheader/il2cpp/analysis/NoreturnSeedReader.java" \
   "$ROOT/src/main/java/turboheader/il2cpp/analysis/NoreturnProofEngine.java" \
-  "$ROOT/tests/java/turboheader/il2cpp/analysis/Aarch64InterfaceDispatchProofTest.java" \
+  "$ROOT/tests/java/turboheader/il2cpp/analysis/architecture/aarch64/Aarch64InterfaceDispatchProofTest.java" \
   "$ROOT/tests/java/turboheader/il2cpp/analysis/NoreturnProofEngineTest.java" \
   "$ROOT/tests/java/turboheader/il2cpp/analysis/NoreturnSeedReaderTest.java"
-java -cp "$BUILD/classes" turboheader.il2cpp.analysis.Aarch64InterfaceDispatchProofTest
+java -cp "$BUILD/classes" \
+  turboheader.il2cpp.analysis.architecture.aarch64.Aarch64InterfaceDispatchProofTest
 java -cp "$BUILD/classes" turboheader.il2cpp.analysis.NoreturnProofEngineTest
 java -cp "$BUILD/classes" turboheader.il2cpp.analysis.NoreturnSeedReaderTest
 

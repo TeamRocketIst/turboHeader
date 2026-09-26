@@ -9,6 +9,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.OptionalInt;
 import java.util.Set;
+import turboheader.il2cpp.analysis.architecture.ControlFlowDecoder;
 
 /** Pure conservative CFG proof used only when an external i2c seed artifact is unavailable. */
 final class NoreturnProofEngine {

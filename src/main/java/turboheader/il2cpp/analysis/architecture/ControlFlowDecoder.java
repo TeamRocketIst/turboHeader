@@ -1,6 +1,6 @@
-package turboheader.il2cpp.analysis;
+package turboheader.il2cpp.analysis.architecture;
 
-interface ControlFlowDecoder {
+public interface ControlFlowDecoder {
     int instructionSize();
 
     DecodedInstruction decode(long address, int encoding);
@@ -19,7 +19,7 @@ interface ControlFlowDecoder {
     }
 
     record DecodedInstruction(Kind kind, long target) {
-        static DecodedInstruction simple(Kind kind) {
+        public static DecodedInstruction simple(Kind kind) {
             return new DecodedInstruction(kind, 0);
         }
     }

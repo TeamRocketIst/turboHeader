@@ -10,6 +10,8 @@ import ghidra.program.model.address.Address;
 import ghidra.program.model.listing.Function;
 import ghidra.program.model.listing.Program;
 import ghidra.program.model.mem.MemoryAccessException;
+import turboheader.il2cpp.analysis.architecture.ControlFlowDecoder;
+import turboheader.il2cpp.analysis.architecture.Il2CppArchitectureSupport;
 
 /** Adapts Ghidra program memory and symbols to the pure conservative proof engine. */
 final class GhidraNoreturnDiscovery {

@@ -1,4 +1,4 @@
-package turboheader.il2cpp.analysis;
+package turboheader.il2cpp.analysis.architecture.aarch64;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -8,6 +8,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import turboheader.il2cpp.analysis.Il2CppHelperKind;
+import turboheader.il2cpp.analysis.architecture.ArchitectureHelperProof;
+import turboheader.il2cpp.analysis.architecture.ControlFlowDecoder;
 
 final class Aarch64InterfaceDispatchProof implements ArchitectureHelperProof {
     private static final int INSTRUCTION_SIZE = Integer.BYTES;

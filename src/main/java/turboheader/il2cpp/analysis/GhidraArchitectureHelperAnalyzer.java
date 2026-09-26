@@ -10,6 +10,8 @@ import ghidra.program.model.listing.Function;
 import ghidra.program.model.listing.Program;
 import ghidra.program.model.mem.MemoryAccessException;
 import ghidra.util.task.TaskMonitor;
+import turboheader.il2cpp.analysis.architecture.ArchitectureHelperProof;
+import turboheader.il2cpp.analysis.architecture.Il2CppArchitectureSupport;
 import turboheader.il2cpp.project.Il2CppProgramFacts;
 
 final class GhidraArchitectureHelperAnalyzer {

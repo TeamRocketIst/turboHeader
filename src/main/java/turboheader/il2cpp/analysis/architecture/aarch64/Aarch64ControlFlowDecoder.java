@@ -1,4 +1,6 @@
-package turboheader.il2cpp.analysis;
+package turboheader.il2cpp.analysis.architecture.aarch64;
+
+import turboheader.il2cpp.analysis.architecture.ControlFlowDecoder;
 
 /**
  * Minimal, allocation-free AArch64 control-flow classifier.

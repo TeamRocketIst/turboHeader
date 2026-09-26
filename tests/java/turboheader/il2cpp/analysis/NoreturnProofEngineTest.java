@@ -3,6 +3,8 @@ package turboheader.il2cpp.analysis;
 import java.util.Map;
 import java.util.OptionalInt;
 import java.util.Set;
+import turboheader.il2cpp.analysis.architecture.ControlFlowDecoder;
+import turboheader.il2cpp.analysis.architecture.aarch64.Aarch64Architecture;
 
 public final class NoreturnProofEngineTest {
     public static void main(String[] args) {
@@ -13,7 +15,7 @@ public final class NoreturnProofEngineTest {
     }
 
     private static void decoderClassifiesNamedControlFlowKinds() {
-        var decoder = new Aarch64ControlFlowDecoder();
+        var decoder = Aarch64Architecture.controlFlowDecoder();
         require(decoder.decode(0x1000, branch(0x1400_0000, 0x1000, 0x2000)).kind() ==
                 ControlFlowDecoder.Kind.DIRECT_JUMP, "direct jump");
         require(decoder.decode(0x1000, branch(0x9400_0000, 0x1000, 0x2000)).kind() ==
@@ -42,7 +44,7 @@ public final class NoreturnProofEngineTest {
         };
         var result = new NoreturnProofEngine(
                 source, Set.of(0x1000L, 0x1100L), Set.of(0x8000L),
-                new Aarch64ControlFlowDecoder()).discover();
+                Aarch64Architecture.controlFlowDecoder()).discover();
         require(result.proven().contains(0x2000L), "noreturn helper should be proven");
         require(result.proven().contains(0x8000L), "terminal leaf should be retained");
         require(!result.proven().contains(0x4000L), "returning helper must fail safe");
