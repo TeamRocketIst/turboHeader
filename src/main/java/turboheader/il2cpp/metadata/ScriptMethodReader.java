@@ -16,6 +16,8 @@ import com.google.gson.stream.JsonToken;
 /** Reads the useful IL2CPP tables without materializing the rest of script.json. */
 public final class ScriptMethodReader {
     private static final int MAX_INTERFACE_DISPATCH_ENTRIES = 1_000_000;
+    private static final int MAX_DELEGATE_SIGNATURE_ENTRIES = 1_000_000;
+    private static final int MAX_TYPE_NAME_CHARS = 4_096;
     private static final int MAX_SIGNATURE_CHARS = 65_536;
 
     private ScriptMethodReader() {
@@ -31,7 +33,9 @@ public final class ScriptMethodReader {
         List<ScriptMetadataMethod> metadataMethods = new ArrayList<>();
         List<ScriptString> strings = new ArrayList<>();
         List<ScriptInterfaceDispatch> interfaceDispatch = new ArrayList<>();
+        List<ScriptDelegateSignature> delegateSignatures = new ArrayList<>();
         boolean foundInterfaceDispatch = false;
+        boolean foundDelegateSignatures = false;
         try (JsonReader reader = new JsonReader(Files.newBufferedReader(path, StandardCharsets.UTF_8))) {
             reader.beginObject();
             boolean foundMethods = false;
@@ -102,6 +106,22 @@ public final class ScriptMethodReader {
                         }
                         reader.endArray();
                     }
+                    case "ScriptDelegateSignature" -> {
+                        if (foundDelegateSignatures || reader.peek() != JsonToken.BEGIN_ARRAY) {
+                            throw new IOException(
+                                    "script.json ScriptDelegateSignature must be one array");
+                        }
+                        foundDelegateSignatures = true;
+                        reader.beginArray();
+                        while (reader.hasNext()) {
+                            if (delegateSignatures.size() == MAX_DELEGATE_SIGNATURE_ENTRIES) {
+                                throw new IOException(
+                                        "script.json has too many delegate-signature entries");
+                            }
+                            delegateSignatures.add(readDelegateSignature(reader));
+                        }
+                        reader.endArray();
+                    }
                     default -> reader.skipValue();
                 }
             }
@@ -113,8 +133,11 @@ public final class ScriptMethodReader {
         Optional<List<ScriptInterfaceDispatch>> dispatch = foundInterfaceDispatch
                 ? Optional.of(List.copyOf(interfaceDispatch))
                 : Optional.empty();
+        Optional<List<ScriptDelegateSignature>> delegates = foundDelegateSignatures
+                ? Optional.of(List.copyOf(delegateSignatures))
+                : Optional.empty();
         return new ScriptData(List.copyOf(methods), List.copyOf(metadata),
-                List.copyOf(metadataMethods), List.copyOf(strings), dispatch);
+                List.copyOf(metadataMethods), List.copyOf(strings), dispatch, delegates);
     }
 
     private static ScriptMethod readMethod(JsonReader reader) throws IOException {
@@ -221,6 +244,47 @@ public final class ScriptMethodReader {
                 methodAddress, signature);
     }
 
+    private static ScriptDelegateSignature readDelegateSignature(JsonReader reader)
+            throws IOException {
+        Integer typeId = null;
+        String objectType = null;
+        String signature = null;
+        Set<String> fields = new HashSet<>();
+        reader.beginObject();
+        while (reader.hasNext()) {
+            String field = reader.nextName();
+            if (!fields.add(field)) {
+                throw new IOException("duplicate delegate-signature field: " + field);
+            }
+            switch (field) {
+                case "TypeId" -> typeId = readNonNegativeInt(reader, field);
+                case "ObjectType" -> objectType = readBoundedText(reader, field,
+                        MAX_TYPE_NAME_CHARS);
+                case "Signature" -> signature = readBoundedText(reader, field,
+                        MAX_SIGNATURE_CHARS);
+                default -> reader.skipValue();
+            }
+        }
+        reader.endObject();
+        if (typeId == null || objectType == null || signature == null) {
+            throw new IOException("incomplete delegate-signature entry at " + reader.getPath());
+        }
+        return new ScriptDelegateSignature(typeId, objectType, signature);
+    }
+
+    private static String readBoundedText(JsonReader reader, String field, int maxChars)
+            throws IOException {
+        if (reader.peek() != JsonToken.STRING) {
+            throw new IOException(field + " must be a string");
+        }
+        String value = reader.nextString();
+        if (value.isBlank() || value.length() > maxChars ||
+                value.codePoints().anyMatch(Character::isISOControl)) {
+            throw new IOException("invalid " + field);
+        }
+        return value;
+    }
+
     private static int readNonNegativeInt(JsonReader reader, String field) throws IOException {
         if (reader.peek() != JsonToken.NUMBER) {
             throw new IOException(field + " must be an integer");
@@ -314,12 +378,24 @@ public final class ScriptMethodReader {
             int interfaceSlot, long methodAddress, String signature) {
     }
 
+    public record ScriptDelegateSignature(int typeId, String objectType, String signature) {
+    }
+
     public record ScriptData(List<ScriptMethod> methods, List<ScriptMetadata> metadata,
             List<ScriptMetadataMethod> metadataMethods, List<ScriptString> strings,
-            Optional<List<ScriptInterfaceDispatch>> interfaceDispatch) {
+            Optional<List<ScriptInterfaceDispatch>> interfaceDispatch,
+            Optional<List<ScriptDelegateSignature>> delegateSignatures) {
         public ScriptData(List<ScriptMethod> methods, List<ScriptMetadata> metadata,
                 List<ScriptMetadataMethod> metadataMethods, List<ScriptString> strings) {
-            this(methods, metadata, metadataMethods, strings, Optional.empty());
+            this(methods, metadata, metadataMethods, strings, Optional.empty(),
+                    Optional.empty());
+        }
+
+        public ScriptData(List<ScriptMethod> methods, List<ScriptMetadata> metadata,
+                List<ScriptMetadataMethod> metadataMethods, List<ScriptString> strings,
+                Optional<List<ScriptInterfaceDispatch>> interfaceDispatch) {
+            this(methods, metadata, metadataMethods, strings, interfaceDispatch,
+                    Optional.empty());
         }
     }
 }

@@ -101,13 +101,18 @@ if [[ -n "${GHIDRA_INSTALL_DIR:-}" ]]; then
     "$ROOT/src/main/java/turboheader/il2cpp/metadata/ScriptMethodReader.java" \
     "$ROOT/src/main/java/turboheader/il2cpp/metadata/Il2CppInterfaceDispatchCatalog.java" \
     "$ROOT/src/main/java/turboheader/il2cpp/metadata/Il2CppInterfaceDispatchCodec.java" \
+    "$ROOT/src/main/java/turboheader/il2cpp/metadata/Il2CppDelegateSignatureCatalog.java" \
+    "$ROOT/src/main/java/turboheader/il2cpp/metadata/Il2CppDelegateSignatureCodec.java" \
     "$ROOT/tests/java/turboheader/il2cpp/metadata/ScriptMethodReaderTest.java" \
-    "$ROOT/tests/java/turboheader/il2cpp/metadata/Il2CppInterfaceDispatchCatalogTest.java"
+    "$ROOT/tests/java/turboheader/il2cpp/metadata/Il2CppInterfaceDispatchCatalogTest.java" \
+    "$ROOT/tests/java/turboheader/il2cpp/metadata/Il2CppDelegateSignatureCatalogTest.java"
   java -cp "$GSON_JAR:$BUILD/classes" turboheader.il2cpp.HeadlessRequestReaderTest
   java -cp "$GSON_JAR:$BUILD/classes" turboheader.il2cpp.metadata.ScriptMethodReaderTest \
     ${TURBOHEADER_SCRIPT_CORPUS:+"$TURBOHEADER_SCRIPT_CORPUS"}
   java -cp "$GSON_JAR:$BUILD/classes" \
     turboheader.il2cpp.metadata.Il2CppInterfaceDispatchCatalogTest
+  java -cp "$GSON_JAR:$BUILD/classes" \
+    turboheader.il2cpp.metadata.Il2CppDelegateSignatureCatalogTest
 fi
 
 if [[ "${TURBOHEADER_JNI_ONLY:-0}" != "1" ]]; then

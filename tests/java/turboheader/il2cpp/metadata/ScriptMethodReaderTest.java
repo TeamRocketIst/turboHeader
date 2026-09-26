@@ -25,6 +25,8 @@ public final class ScriptMethodReaderTest {
                       {"Value":"line\\n\\t\\\"\\\\é","Address":72}
                     ],"Addresses":[16,32],"ScriptInterfaceDispatch":[
                       {"ReceiverTypeId":4,"InterfaceTypeId":2,"InterfaceSlot":0,"MethodAddress":16,"Signature":"void A__Run (const MethodInfo* method);"}
+                    ],"ScriptDelegateSignature":[
+                      {"TypeId":7,"ObjectType":"System_Action_int__o*","Signature":"void delegate_invoke (Il2CppMethodPointer methodCode, int32_t value, const MethodInfo* method);"}
                     ]}
                     """);
             var data = ScriptMethodReader.readAll(fixture);
@@ -55,6 +57,10 @@ public final class ScriptMethodReaderTest {
                     "interface dispatch count");
             check(data.interfaceDispatch().orElseThrow().get(0).methodAddress() == 16,
                     "interface dispatch target");
+            check(data.delegateSignatures().orElseThrow().size() == 1,
+                    "delegate signature count");
+            check(data.delegateSignatures().orElseThrow().get(0).typeId() == 7,
+                    "delegate signature TypeId");
         }
         finally {
             Files.deleteIfExists(fixture);
@@ -72,6 +78,8 @@ public final class ScriptMethodReaderTest {
                 "duplicate metadata method table");
         expectFailure("{\"ScriptMethod\":[],\"ScriptInterfaceDispatch\":[],\"ScriptInterfaceDispatch\":[]}",
                 "duplicate interface dispatch table");
+        expectFailure("{\"ScriptMethod\":[],\"ScriptDelegateSignature\":[],\"ScriptDelegateSignature\":[]}",
+                "duplicate delegate signature table");
         expectFailure("{\"ScriptMethod\":[],\"ScriptInterfaceDispatch\":[{" +
                 "\"ReceiverTypeId\":1,\"InterfaceTypeId\":2,\"InterfaceSlot\":-1," +
                 "\"MethodAddress\":16,\"Signature\":\"void A__Run ();\"}]}",
@@ -81,6 +89,18 @@ public final class ScriptMethodReaderTest {
                 "\"InterfaceSlot\":0,\"MethodAddress\":16," +
                 "\"Signature\":\"void A__Run ();\"}]}",
                 "duplicate dispatch field");
+        expectFailure("{\"ScriptMethod\":[],\"ScriptDelegateSignature\":[{" +
+                "\"TypeId\":-1,\"ObjectType\":\"Action_o*\"," +
+                "\"Signature\":\"void delegate_invoke ();\"}]}",
+                "negative delegate TypeId");
+        expectFailure("{\"ScriptMethod\":[],\"ScriptDelegateSignature\":[{" +
+                "\"TypeId\":1,\"ObjectType\":\"Action_o*\",\"ObjectType\":\"Other_o*\"," +
+                "\"Signature\":\"void delegate_invoke ();\"}]}",
+                "duplicate delegate field");
+        expectFailure("{\"ScriptMethod\":[],\"ScriptDelegateSignature\":[{" +
+                "\"TypeId\":1,\"ObjectType\":\"Action\\u0001_o*\"," +
+                "\"Signature\":\"void delegate_invoke ();\"}]}",
+                "delegate type control character");
 
         if (args.length == 1) {
             var methods = ScriptMethodReader.read(Path.of(args[0]));
