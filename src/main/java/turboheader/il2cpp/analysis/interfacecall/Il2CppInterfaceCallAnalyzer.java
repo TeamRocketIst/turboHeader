@@ -87,6 +87,9 @@ public final class Il2CppInterfaceCallAnalyzer {
             if (!decompiler.openProgram(program)) {
                 throw new IllegalStateException("Ghidra decompiler did not open the program");
             }
+            if (!decompiler.setSimplificationStyle("normalize")) {
+                throw new IllegalStateException("Ghidra decompiler rejected normalize style");
+            }
             for (Function candidate : candidates) {
                 monitor.checkCancelled();
                 long decompileStarted = System.nanoTime();
