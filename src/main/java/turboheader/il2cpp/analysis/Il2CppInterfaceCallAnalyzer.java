@@ -45,17 +45,19 @@ public final class Il2CppInterfaceCallAnalyzer {
             return empty(Outcome.MISSING_HELPERS, started);
         }
 
-        List<Function> candidates = candidates(
-                program, selectedFunctions, interfaceHelper, monitor);
+        Set<Address> objectNewTargets = helperTargets(program, objectNewHelper);
+        CandidateSelection selection = candidates(
+                program, selectedFunctions, interfaceHelper, objectNewTargets, monitor);
+        List<Function> candidates = selection.functions();
         if (candidates.isEmpty()) {
-            return new AnalysisStats(Outcome.COMPLETE, 0, 0, 0, 0, 0, 0, 0,
+            return new AnalysisStats(Outcome.COMPLETE, 0,
+                    selection.prefilteredFunctions(), 0, 0, 0, 0, 0, 0,
                     InterfaceCallRejectionCounts.none(), List.of(), List.of(),
                     System.nanoTime() - started);
         }
 
         long modificationNumber = program.getModificationNumber();
         var catalog = stored.orElseThrow();
-        Set<Address> objectNewTargets = helperTargets(program, objectNewHelper);
         var typeInfoSources = GhidraTypeInfoSources.collect(program, catalog);
         var resolver = new GhidraPcodeInterfaceCallResolver(
                 interfaceHelper, objectNewTargets, program.getDefaultPointerSize(),
@@ -131,7 +133,8 @@ public final class Il2CppInterfaceCallAnalyzer {
         }
         proofs.addAll(byCallsite.values());
         proofs.sort(Comparator.comparing(ProvenCall::callsite));
-        return new AnalysisStats(Outcome.COMPLETE, candidates.size(), completed, failed,
+        return new AnalysisStats(Outcome.COMPLETE, candidates.size(),
+                selection.prefilteredFunctions(), completed, failed,
                 helperCalls, associatedCalls, proofs.size(), conflicts.size(),
                 InterfaceCallRejectionCounts.count(rejectionReasons), rejectionSamples, proofs,
                 System.nanoTime() - started);
@@ -158,29 +161,46 @@ public final class Il2CppInterfaceCallAnalyzer {
         return Set.copyOf(targets);
     }
 
-    private static List<Function> candidates(Program program,
-            List<Function> selectedFunctions, Address interfaceHelper, TaskMonitor monitor)
-            throws Exception {
+    private static CandidateSelection candidates(Program program,
+            List<Function> selectedFunctions, Address interfaceHelper,
+            Set<Address> objectNewTargets, TaskMonitor monitor) throws Exception {
         Set<Function> unique = new LinkedHashSet<>();
+        Set<Function> visited = new HashSet<>();
+        int prefiltered = 0;
         for (Function function : selectedFunctions) {
             monitor.checkCancelled();
+            if (!visited.add(function)) {
+                continue;
+            }
             var instructions = program.getListing().getInstructions(function.getBody(), true);
-            boolean found = false;
-            while (!found && instructions.hasNext()) {
+            boolean callsInterfaceHelper = false;
+            boolean callsObjectNew = false;
+            while (instructions.hasNext() &&
+                    (!callsInterfaceHelper || !callsObjectNew)) {
                 var instruction = instructions.next();
                 if (!instruction.getFlowType().isCall()) {
                     continue;
                 }
                 for (Address flow : instruction.getFlows()) {
                     if (flow.equals(interfaceHelper)) {
-                        unique.add(function);
-                        found = true;
-                        break;
+                        callsInterfaceHelper = true;
+                    }
+                    if (objectNewTargets.contains(flow)) {
+                        callsObjectNew = true;
                     }
                 }
             }
+            if (!callsInterfaceHelper) {
+                continue;
+            }
+            if (callsObjectNew) {
+                unique.add(function);
+            }
+            else {
+                prefiltered++;
+            }
         }
-        return List.copyOf(unique);
+        return new CandidateSelection(List.copyOf(unique), prefiltered);
     }
 
     private static Address imageAddress(Program program, long offset, boolean requireFunction) {
@@ -203,9 +223,18 @@ public final class Il2CppInterfaceCallAnalyzer {
     }
 
     private static AnalysisStats empty(Outcome outcome, long started) {
-        return new AnalysisStats(outcome, 0, 0, 0, 0, 0, 0, 0,
+        return new AnalysisStats(outcome, 0, 0, 0, 0, 0, 0, 0, 0,
                 InterfaceCallRejectionCounts.none(), List.of(), List.of(),
                 System.nanoTime() - started);
+    }
+
+    private record CandidateSelection(List<Function> functions, int prefilteredFunctions) {
+        private CandidateSelection {
+            functions = List.copyOf(functions);
+            if (prefilteredFunctions < 0) {
+                throw new IllegalArgumentException("prefilteredFunctions must not be negative");
+            }
+        }
     }
 
     public enum Outcome {
@@ -235,8 +264,8 @@ public final class Il2CppInterfaceCallAnalyzer {
     }
 
     public record AnalysisStats(Outcome outcome, int candidateFunctions,
-            int completedFunctions, int failedFunctions, int helperCalls,
-            int associatedCalls, int provenCalls, int conflictingCallsites,
+            int prefilteredFunctions, int completedFunctions, int failedFunctions,
+            int helperCalls, int associatedCalls, int provenCalls, int conflictingCallsites,
             InterfaceCallRejectionCounts rejections, List<RejectedCall> rejectionSamples,
             List<ProvenCall> proofs, long elapsedNanos) {
         public AnalysisStats {
@@ -244,7 +273,8 @@ public final class Il2CppInterfaceCallAnalyzer {
             Objects.requireNonNull(rejections, "rejections");
             rejectionSamples = List.copyOf(rejectionSamples);
             proofs = List.copyOf(proofs);
-            if (candidateFunctions < 0 || completedFunctions < 0 || failedFunctions < 0 ||
+            if (candidateFunctions < 0 || prefilteredFunctions < 0 ||
+                    completedFunctions < 0 || failedFunctions < 0 ||
                     completedFunctions + failedFunctions > candidateFunctions ||
                     helperCalls < 0 || associatedCalls < 0 || provenCalls < 0 ||
                     conflictingCallsites < 0 || associatedCalls > helperCalls ||

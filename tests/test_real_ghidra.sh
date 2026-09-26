@@ -140,6 +140,7 @@ grep -q 'TurboHeader real-Ghidra decompilation coordinator verification passed' 
 grep -q 'TurboHeader real-Ghidra export analysis verification passed' "$LOG"
 grep -q 'TurboHeader real-Ghidra export writer verification passed' "$LOG"
 grep -q 'TurboHeader interface-dispatch integration verification passed' "$LOG"
+grep -q 'TurboHeader interface-call prefilter verification passed' "$LOG"
 grep -q 'TurboHeader interface-call P-code proof verification passed' "$LOG"
 grep -q 'TurboHeader interface-call override verification passed' "$LOG"
 grep -q 'TurboHeader interface-dispatch catalogue stored' "$LOG"

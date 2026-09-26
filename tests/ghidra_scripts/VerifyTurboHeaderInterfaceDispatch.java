@@ -2,6 +2,7 @@
 
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import ghidra.app.cmd.disassemble.DisassembleCommand;
@@ -37,6 +38,8 @@ public class VerifyTurboHeaderInterfaceDispatch extends GhidraScript {
     private static final long OBJECT_NEW_ANCHOR = 0x220;
     private static final long TARGET = 0x240;
     private static final long METHOD = 0x300;
+    private static final long CANONICAL_CALLER = 0x400;
+    private static final long FACTORY_CALLER = 0x440;
     private static final long RECEIVER_TYPE = 0x500;
     private static final long INTERFACE_TYPE = 0x508;
     private static final long RECEIVER_TYPE_GOT = 0x520;
@@ -69,6 +72,14 @@ public class VerifyTurboHeaderInterfaceDispatch extends GhidraScript {
         require(create.applyTo(currentProgram, monitor), "could not create managed fixture");
         Function function = currentProgram.getFunctionManager().getFunctionAt(entry);
         require(function != null, "managed fixture function is missing");
+        Function canonicalCaller = createFixtureFunction(
+                currentProgram.getImageBase().add(
+                        Math.addExact(blockOffset, CANONICAL_CALLER)),
+                "canonical allocation caller");
+        Function factoryCaller = createFixtureFunction(
+                currentProgram.getImageBase().add(
+                        Math.addExact(blockOffset, FACTORY_CALLER)),
+                "factory-only caller");
         Address objectNewAddress = currentProgram.getImageBase().add(objectNewOffset);
         Address objectNewThunkAddress = currentProgram.getImageBase().add(objectNewThunkOffset);
         Address objectNewAnchor = currentProgram.getImageBase().add(objectNewAnchorOffset);
@@ -115,6 +126,21 @@ public class VerifyTurboHeaderInterfaceDispatch extends GhidraScript {
         Il2CppInterfaceDispatchStore.replace(currentProgram,
                 Il2CppInterfaceDispatchCatalog.fromScript(script));
 
+        var prefilter = Il2CppInterfaceCallAnalyzer.analyze(
+                currentProgram, List.of(function, canonicalCaller, factoryCaller),
+                Map.of(
+                        Il2CppHelperKind.INTERFACE_INVOKE_LOOKUP,
+                        currentProgram.getImageBase().add(helperOffset),
+                        Il2CppHelperKind.OBJECT_NEW, objectNewAnchor),
+                monitor);
+        require(prefilter.candidateFunctions() == 2 &&
+                prefilter.prefilteredFunctions() == 1 &&
+                prefilter.completedFunctions() == 2 && prefilter.failedFunctions() == 0,
+                "interface-call prefilter statistics differ: " + prefilter);
+        require(prefilter.provenCalls() == 1,
+                "interface-call prefilter dropped the proven thunk caller");
+        println("TurboHeader interface-call prefilter verification passed");
+
         Il2CppProgramFacts.replaceManagedMethodOffsets(currentProgram,
                 List.of(methodOffset, targetOffset), List.of());
         var ready = new Il2CppFunctionPreparationService.PreparedFunction(function, function);
@@ -160,7 +186,8 @@ public class VerifyTurboHeaderInterfaceDispatch extends GhidraScript {
         var calls = after.interfaceCalls();
         require(calls.outcome() == Il2CppInterfaceCallAnalyzer.Outcome.COMPLETE &&
                 calls.candidateFunctions() == 1 && calls.completedFunctions() == 1 &&
-                calls.failedFunctions() == 0, "interface-call candidate statistics differ");
+                calls.prefilteredFunctions() == 0 && calls.failedFunctions() == 0,
+                "interface-call candidate statistics differ");
         require(calls.helperCalls() == 1 && calls.associatedCalls() == 1 &&
                 calls.provenCalls() == 1 && calls.conflictingCallsites() == 0,
                 "interface-call proof statistics differ: " + calls);
@@ -197,7 +224,7 @@ public class VerifyTurboHeaderInterfaceDispatch extends GhidraScript {
         println("TurboHeader interface-call override verification passed");
     }
 
-    private void createFixtureFunction(Address address, String description) {
+    private Function createFixtureFunction(Address address, String description) {
         DisassembleCommand disassemble = new DisassembleCommand(address, null, true);
         disassemble.enableCodeAnalysis(false);
         require(disassemble.applyTo(currentProgram, monitor),
@@ -206,6 +233,9 @@ public class VerifyTurboHeaderInterfaceDispatch extends GhidraScript {
             require(new CreateFunctionCmd(address).applyTo(currentProgram, monitor),
                     "could not create " + description);
         }
+        Function function = currentProgram.getFunctionManager().getFunctionAt(address);
+        require(function != null, description + " function is missing");
+        return function;
     }
 
     private void configureTypeInfoData(MemoryBlock codeBlock,

@@ -10,6 +10,8 @@ OBJECT_NEW_THUNK = 0x210
 OBJECT_NEW_ANCHOR = 0x220
 TARGET = 0x240
 METHOD = 0x300
+CANONICAL_CALLER = 0x400
+FACTORY_CALLER = 0x440
 NATIVE_CALL = 0x180
 CONDITION_TARGET = 0x190
 RECEIVER_TYPE = 0x500
@@ -106,6 +108,15 @@ def main():
         0xD65F_03C0,
     ]
     write_words(data, METHOD, method_words)
+    write_words(data, CANONICAL_CALLER, [
+        branch(0x9400_0000, CANONICAL_CALLER, OBJECT_NEW_ANCHOR),
+        branch(0x9400_0000, CANONICAL_CALLER + 0x04, HELPER),
+        0xD65F_03C0,
+    ])
+    write_words(data, FACTORY_CALLER, [
+        branch(0x9400_0000, FACTORY_CALLER, HELPER),
+        0xD65F_03C0,
+    ])
     struct.pack_into("<Q", data, RECEIVER_TYPE, 0x2500)
     struct.pack_into("<Q", data, INTERFACE_TYPE, 0x2600)
     struct.pack_into("<Q", data, RECEIVER_TYPE_GOT, IMAGE_BASE + RECEIVER_TYPE)

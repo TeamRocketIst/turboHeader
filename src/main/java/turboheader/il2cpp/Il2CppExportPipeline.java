@@ -76,9 +76,11 @@ public final class Il2CppExportPipeline {
                 after.helpers().renamed(), after.helpers().typed(),
                 after.helpers().architectureProofSeconds(), after.elapsedSeconds()));
         output.accept(String.format(Locale.ROOT,
-                "TurboHeader interface calls: status=%s, candidates=%d, associated=%d/%d, " +
+                "TurboHeader interface calls: status=%s, candidates=%d, prefiltered=%d, " +
+                "associated=%d/%d, " +
                 "proven=%d, published=%d, rejected=%s, total=%.3fs.",
                 after.interfaceCalls().outcome(), after.interfaceCalls().candidateFunctions(),
+                after.interfaceCalls().prefilteredFunctions(),
                 after.interfaceCalls().associatedCalls(), after.interfaceCalls().helperCalls(),
                 after.interfaceCalls().provenCalls(),
                 after.publishedInterfaceCalls().added(),
