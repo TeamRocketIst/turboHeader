@@ -36,11 +36,15 @@ EXPORT_REQUEST="$PROJECT_ROOT/export-request.json"
 JAVA_EXPORT_REQUEST="$EXPORT_REQUEST"
 EXPORT_OUTPUT="$PROJECT_ROOT/export-output"
 JAVA_EXPORT_OUTPUT="$EXPORT_OUTPUT"
+INTERFACE_BINARY="$PROJECT_ROOT/interface-dispatch.bin"
+JAVA_INTERFACE_BINARY="$INTERFACE_BINARY"
+python3 "$ROOT/tests/tools/build_interface_dispatch_fixture.py" "$INTERFACE_BINARY"
 if command -v cygpath >/dev/null 2>&1; then
   JAVA_TEST_BINARY="$(cygpath -m "$TEST_BINARY")"
   JAVA_REQUEST="$(cygpath -m "$REQUEST")"
   JAVA_EXPORT_REQUEST="$(cygpath -m "$EXPORT_REQUEST")"
   JAVA_EXPORT_OUTPUT="$(cygpath -m "$EXPORT_OUTPUT")"
+  JAVA_INTERFACE_BINARY="$(cygpath -m "$INTERFACE_BINARY")"
 fi
 python3 -c 'import json, pathlib, sys; pathlib.Path(sys.argv[1]).write_text(json.dumps({"schema": 1, "operation": "import", "header": sys.argv[2], "offsets": sys.argv[3], "methods": None, "layoutPolicy": "allow-inferred"}))' \
   "$REQUEST" "$JAVA_ROOT/tests/fixtures/sample.h" "$JAVA_ROOT/tests/fixtures/type_offsets.json"
@@ -103,6 +107,26 @@ JAVA_TOOL_OPTIONS="${JAVA_TOOL_OPTIONS:+$JAVA_TOOL_OPTIONS }-Dapplication.settin
   -postScript ExportIl2Cpp.java --request "$JAVA_EXPORT_REQUEST" \
   -deleteProject 2>&1 | tee "$LOG"
 
+JAVA_TOOL_OPTIONS="${JAVA_TOOL_OPTIONS:+$JAVA_TOOL_OPTIONS }-Dapplication.settingsdir=$JAVA_PROJECT_ROOT/settings -Dapplication.cachedir=$JAVA_PROJECT_ROOT/cache" \
+  bash "$HEADLESS" "$JAVA_PROJECT_ROOT" TurboHeaderArm64Fixture \
+  -import "$JAVA_INTERFACE_BINARY" -noanalysis \
+  -loader BinaryLoader -loader-baseAddr 0x1000 -loader-blockName interface_dispatch \
+  -processor AARCH64:LE:64:v8A -cspec default \
+  -scriptPath "$JAVA_ROOT/ghidra_scripts;$JAVA_ROOT/tests/ghidra_scripts" \
+  -postScript ImportIl2CppTypes.java \
+  "$JAVA_ROOT/tests/fixtures/class_metadata.h" \
+  "$JAVA_ROOT/tests/fixtures/class_metadata_offsets.json" - require-external-offsets \
+  -postScript VerifyTurboHeaderInterfaceDispatch.java \
+  -postScript VerifyTurboHeaderInterfaceDispatchStore.java write \
+  2>&1 | tee -a "$LOG"
+
+JAVA_TOOL_OPTIONS="${JAVA_TOOL_OPTIONS:+$JAVA_TOOL_OPTIONS }-Dapplication.settingsdir=$JAVA_PROJECT_ROOT/settings -Dapplication.cachedir=$JAVA_PROJECT_ROOT/cache" \
+  bash "$HEADLESS" "$JAVA_PROJECT_ROOT" TurboHeaderArm64Fixture \
+  -process interface-dispatch.bin -noanalysis \
+  -scriptPath "$JAVA_ROOT/tests/ghidra_scripts" \
+  -postScript VerifyTurboHeaderInterfaceDispatchStore.java \
+  -deleteProject 2>&1 | tee -a "$LOG"
+
 grep -q 'TurboHeader real-Ghidra fixture verification passed' "$LOG"
 grep -q 'TurboHeader real-Ghidra transaction tests passed' "$LOG"
 grep -q 'TurboHeader real-Ghidra provenance verification passed' "$LOG"
@@ -115,6 +139,12 @@ grep -q 'TurboHeader real-Ghidra function preparation verification passed' "$LOG
 grep -q 'TurboHeader real-Ghidra decompilation coordinator verification passed' "$LOG"
 grep -q 'TurboHeader real-Ghidra export analysis verification passed' "$LOG"
 grep -q 'TurboHeader real-Ghidra export writer verification passed' "$LOG"
+grep -q 'TurboHeader interface-dispatch integration verification passed' "$LOG"
+grep -q 'TurboHeader interface-call P-code proof verification passed' "$LOG"
+grep -q 'TurboHeader interface-call override verification passed' "$LOG"
+grep -q 'TurboHeader interface-dispatch catalogue stored' "$LOG"
+grep -q 'TurboHeader interface-dispatch catalogue survived project reopen' "$LOG"
+grep -q 'TurboHeader absent interface-dispatch catalogue cleared stored facts' "$LOG"
 grep -Eq 'TurboHeader export plan: discovered=1, selected=1, scanned=[0-9]+, matched=1, unmatched=0, ambiguous=0, assembly-resolved=0, assembly-mismatches=0, jobs=8\.' "$LOG"
 grep -Eq 'TurboHeader export complete: classes=1, functions=1, failed=0\.' "$LOG"
 grep -Eq 'TurboHeader phase timing: scan=[0-9.]+s, analysis=[0-9.]+s, prepare=[0-9.]+s, decompile=[0-9.]+s, writes=[0-9.]+s, total=[0-9.]+s\.' "$LOG"

@@ -16,6 +16,15 @@ javac --release 21 -d "$BUILD/classes" \
   "$ROOT/src/main/java/turboheader/il2cpp/analysis/Il2CppHelperKind.java" \
   "$ROOT/src/main/java/turboheader/il2cpp/analysis/Il2CppHelperNames.java" \
   "$ROOT/tests/java/turboheader/il2cpp/analysis/Il2CppHelperNamesTest.java" \
+  "$ROOT/src/main/java/turboheader/il2cpp/analysis/ExactSsaValueResolver.java" \
+  "$ROOT/src/main/java/turboheader/il2cpp/analysis/SsaIdentityResolver.java" \
+  "$ROOT/src/main/java/turboheader/il2cpp/analysis/TypeInfoSourcePolicy.java" \
+  "$ROOT/src/main/java/turboheader/il2cpp/analysis/Il2CppInterfaceCallProof.java" \
+  "$ROOT/src/main/java/turboheader/il2cpp/analysis/InterfaceCallRejectionCounts.java" \
+  "$ROOT/tests/java/turboheader/il2cpp/analysis/Il2CppInterfaceCallProofTest.java" \
+  "$ROOT/tests/java/turboheader/il2cpp/analysis/SsaIdentityResolverTest.java" \
+  "$ROOT/tests/java/turboheader/il2cpp/analysis/TypeInfoSourcePolicyTest.java" \
+  "$ROOT/tests/java/turboheader/il2cpp/analysis/InterfaceCallRejectionCountsTest.java" \
   "$ROOT/src/main/java/turboheader/il2cpp/analysis/Il2CppHelperProofPolicy.java" \
   "$ROOT/tests/java/turboheader/il2cpp/analysis/Il2CppHelperProofPolicyTest.java" \
   "$ROOT/src/main/java/turboheader/il2cpp/types/ImportDiagnostics.java" \
@@ -37,6 +46,10 @@ java -cp "$BUILD/classes" turboheader.il2cpp.metadata.MethodAssemblyIdentityTest
 java -cp "$BUILD/classes" turboheader.il2cpp.metadata.Il2CppStringLabelsTest
 java -cp "$BUILD/classes" turboheader.il2cpp.metadata.Il2CppMethodMetadataLabelsTest
 java -cp "$BUILD/classes" turboheader.il2cpp.analysis.Il2CppHelperNamesTest
+java -cp "$BUILD/classes" turboheader.il2cpp.analysis.Il2CppInterfaceCallProofTest
+java -cp "$BUILD/classes" turboheader.il2cpp.analysis.SsaIdentityResolverTest
+java -cp "$BUILD/classes" turboheader.il2cpp.analysis.TypeInfoSourcePolicyTest
+java -cp "$BUILD/classes" turboheader.il2cpp.analysis.InterfaceCallRejectionCountsTest
 java -cp "$BUILD/classes" turboheader.il2cpp.analysis.Il2CppHelperProofPolicyTest
 
 javac --release 21 -cp "$BUILD/classes" -d "$BUILD/classes" \
@@ -59,12 +72,17 @@ javac --release 21 -d "$BUILD/classes" \
   "$ROOT/tests/java/turboheader/il2cpp/types/CFunctionSignatureParserTest.java"
 java -cp "$BUILD/classes" turboheader.il2cpp.types.CFunctionSignatureParserTest
 
-javac --release 21 -d "$BUILD/classes" \
+javac --release 21 -cp "$BUILD/classes" -d "$BUILD/classes" \
+  "$ROOT/src/main/java/turboheader/il2cpp/analysis/ArchitectureHelperProof.java" \
+  "$ROOT/src/main/java/turboheader/il2cpp/analysis/ControlFlowDecoder.java" \
   "$ROOT/src/main/java/turboheader/il2cpp/analysis/Aarch64ControlFlowDecoder.java" \
+  "$ROOT/src/main/java/turboheader/il2cpp/analysis/Aarch64InterfaceDispatchProof.java" \
   "$ROOT/src/main/java/turboheader/il2cpp/analysis/NoreturnSeedReader.java" \
   "$ROOT/src/main/java/turboheader/il2cpp/analysis/NoreturnProofEngine.java" \
+  "$ROOT/tests/java/turboheader/il2cpp/analysis/Aarch64InterfaceDispatchProofTest.java" \
   "$ROOT/tests/java/turboheader/il2cpp/analysis/NoreturnProofEngineTest.java" \
   "$ROOT/tests/java/turboheader/il2cpp/analysis/NoreturnSeedReaderTest.java"
+java -cp "$BUILD/classes" turboheader.il2cpp.analysis.Aarch64InterfaceDispatchProofTest
 java -cp "$BUILD/classes" turboheader.il2cpp.analysis.NoreturnProofEngineTest
 java -cp "$BUILD/classes" turboheader.il2cpp.analysis.NoreturnSeedReaderTest
 
@@ -77,10 +95,15 @@ if [[ -n "${GHIDRA_INSTALL_DIR:-}" ]]; then
     "$ROOT/src/main/java/turboheader/il2cpp/HeadlessRequestReader.java" \
     "$ROOT/tests/java/turboheader/il2cpp/HeadlessRequestReaderTest.java" \
     "$ROOT/src/main/java/turboheader/il2cpp/metadata/ScriptMethodReader.java" \
-    "$ROOT/tests/java/turboheader/il2cpp/metadata/ScriptMethodReaderTest.java"
+    "$ROOT/src/main/java/turboheader/il2cpp/metadata/Il2CppInterfaceDispatchCatalog.java" \
+    "$ROOT/src/main/java/turboheader/il2cpp/metadata/Il2CppInterfaceDispatchCodec.java" \
+    "$ROOT/tests/java/turboheader/il2cpp/metadata/ScriptMethodReaderTest.java" \
+    "$ROOT/tests/java/turboheader/il2cpp/metadata/Il2CppInterfaceDispatchCatalogTest.java"
   java -cp "$GSON_JAR:$BUILD/classes" turboheader.il2cpp.HeadlessRequestReaderTest
   java -cp "$GSON_JAR:$BUILD/classes" turboheader.il2cpp.metadata.ScriptMethodReaderTest \
     ${TURBOHEADER_SCRIPT_CORPUS:+"$TURBOHEADER_SCRIPT_CORPUS"}
+  java -cp "$GSON_JAR:$BUILD/classes" \
+    turboheader.il2cpp.metadata.Il2CppInterfaceDispatchCatalogTest
 fi
 
 if [[ "${TURBOHEADER_JNI_ONLY:-0}" != "1" ]]; then

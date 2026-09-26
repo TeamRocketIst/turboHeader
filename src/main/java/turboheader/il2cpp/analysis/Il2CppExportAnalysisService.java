@@ -63,8 +63,14 @@ public final class Il2CppExportAnalysisService {
 
         var helpers = new Il2CppExportedHelperAnalyzer(program, functions, monitor).analyze();
         monitor.checkCancelled();
-        return new AfterPreparationResult(helpers, program.getModificationNumber(),
-                System.nanoTime() - started);
+        var interfaceCalls = Il2CppInterfaceCallAnalyzer.analyze(
+                program, functions, helpers.anchors(), monitor);
+        monitor.checkCancelled();
+        var publishedInterfaceCalls = Il2CppInterfaceCallPublisher.publish(
+                program, interfaceCalls.proofs(), monitor);
+        monitor.checkCancelled();
+        return new AfterPreparationResult(helpers, interfaceCalls, publishedInterfaceCalls,
+                program.getModificationNumber(), System.nanoTime() - started);
     }
 
     private static List<String> runGlobalAnalyzers(Program program, TaskMonitor monitor)
@@ -109,9 +115,13 @@ public final class Il2CppExportAnalysisService {
 
     public record AfterPreparationResult(
             Il2CppExportedHelperAnalyzer.AnalysisStats helpers,
+            Il2CppInterfaceCallAnalyzer.AnalysisStats interfaceCalls,
+            Il2CppInterfaceCallPublisher.PublicationStats publishedInterfaceCalls,
             long stableModificationNumber, long elapsedNanos) {
         public AfterPreparationResult {
             Objects.requireNonNull(helpers, "helpers");
+            Objects.requireNonNull(interfaceCalls, "interfaceCalls");
+            Objects.requireNonNull(publishedInterfaceCalls, "publishedInterfaceCalls");
             if (stableModificationNumber < 0 || elapsedNanos < 0) {
                 throw new IllegalArgumentException("analysis statistics must not be negative");
             }

@@ -69,10 +69,28 @@ public final class Il2CppExportPipeline {
                 program, preparation, monitor);
         long analysisNanos = before.elapsedNanos() + after.elapsedNanos();
         output.accept(String.format(Locale.ROOT,
-                "TurboHeader helpers: candidates=%d, proven=%d, renamed=%d, typed=%d, " +
-                "total=%.3fs.",
-                after.helpers().compilerCandidates(), after.helpers().provenHelpers(),
-                after.helpers().renamed(), after.helpers().typed(), after.elapsedSeconds()));
+                "TurboHeader helpers: candidates=%d, interface=%d/%d, proven=%d, " +
+                "renamed=%d, typed=%d, interface-proof=%.3fs, total=%.3fs.",
+                after.helpers().compilerCandidates(), after.helpers().architectureProofs(),
+                after.helpers().architectureCandidates(), after.helpers().provenHelpers(),
+                after.helpers().renamed(), after.helpers().typed(),
+                after.helpers().architectureProofSeconds(), after.elapsedSeconds()));
+        output.accept(String.format(Locale.ROOT,
+                "TurboHeader interface calls: status=%s, candidates=%d, associated=%d/%d, " +
+                "proven=%d, published=%d, rejected=%s, total=%.3fs.",
+                after.interfaceCalls().outcome(), after.interfaceCalls().candidateFunctions(),
+                after.interfaceCalls().associatedCalls(), after.interfaceCalls().helperCalls(),
+                after.interfaceCalls().provenCalls(),
+                after.publishedInterfaceCalls().added(),
+                after.interfaceCalls().rejections().summary(),
+                after.interfaceCalls().elapsedSeconds() +
+                after.publishedInterfaceCalls().elapsedSeconds()));
+        for (var sample : after.interfaceCalls().rejectionSamples()) {
+            output.accept(String.format(Locale.ROOT,
+                    "TurboHeader interface rejection: helper=%s, callind=%s, reason=%s.",
+                    sample.helperCallsite(), sample.indirectCallsite(),
+                    sample.reason().label()));
+        }
 
         if (program.getModificationNumber() != after.stableModificationNumber()) {
             throw new IllegalStateException("program changed after the analysis barrier");
