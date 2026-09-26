@@ -92,8 +92,12 @@ public final class Il2CppExportPipeline {
                 after.interfaceCalls().rejections().summary(),
                 after.interfaceCalls().elapsedSeconds() +
                 after.publishedInterfaceCalls().elapsedSeconds()));
-        if (Boolean.getBoolean(INTERFACE_PROFILE_PROPERTY)) {
-            printInterfaceProfile(after, output);
+        if (after.interfaceCalls().outcome() ==
+                Il2CppInterfaceCallAnalyzer.Outcome.COMPLETE) {
+            printInterfaceTiming(after, output);
+            if (Boolean.getBoolean(INTERFACE_PROFILE_PROPERTY)) {
+                printSlowInterfaceCandidates(after.interfaceCalls(), output);
+            }
         }
         for (var sample : after.interfaceCalls().rejectionSamples()) {
             output.accept(String.format(Locale.ROOT,
@@ -139,19 +143,23 @@ public final class Il2CppExportPipeline {
                 writing, scanNanos, analysisNanos, decompilationNanos, totalNanos);
     }
 
-    private static void printInterfaceProfile(
+    private static void printInterfaceTiming(
             Il2CppExportAnalysisService.AfterPreparationResult after,
             Consumer<String> output) {
         var calls = after.interfaceCalls();
         var timing = calls.timing();
         long otherNanos = Math.max(0, calls.elapsedNanos() - timing.measuredNanos());
         output.accept(String.format(Locale.ROOT,
-                "TurboHeader interface profile: candidate-scan=%.3fs, typeinfo=%.3fs, " +
+                "TurboHeader interface timing: candidate-scan=%.3fs, typeinfo=%.3fs, " +
                 "decompile=%.3fs, resolve=%.3fs, other=%.3fs, publish=%.3fs.",
                 timing.candidateSelectionSeconds(), timing.typeInfoSeconds(),
                 timing.decompilationSeconds(), timing.resolutionSeconds(),
                 seconds(otherNanos), after.publishedInterfaceCalls().elapsedSeconds()));
+    }
 
+    private static void printSlowInterfaceCandidates(
+            Il2CppInterfaceCallAnalyzer.AnalysisStats calls,
+            Consumer<String> output) {
         calls.functionTimings().stream()
                 .sorted(Comparator.comparingLong(
                         Il2CppInterfaceCallAnalyzer.FunctionTiming::elapsedNanos).reversed())
