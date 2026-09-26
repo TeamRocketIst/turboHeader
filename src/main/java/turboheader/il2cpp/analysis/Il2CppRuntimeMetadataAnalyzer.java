@@ -23,6 +23,7 @@ import ghidra.program.model.pcode.PcodeOpAST;
 import ghidra.program.model.symbol.SourceType;
 import ghidra.util.task.TaskMonitor;
 import turboheader.il2cpp.metadata.GhidraMethodImporter;
+import turboheader.il2cpp.project.Il2CppProgramFacts;
 
 /** Discovers the returning IL2CPP runtime-metadata initializer from typed call arguments. */
 public final class Il2CppRuntimeMetadataAnalyzer {

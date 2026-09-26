@@ -32,6 +32,7 @@ import ghidra.program.model.symbol.SourceType;
 import ghidra.program.model.symbol.Symbol;
 import ghidra.util.task.TaskMonitor;
 import turboheader.il2cpp.metadata.GhidraMethodImporter;
+import turboheader.il2cpp.project.Il2CppProgramFacts;
 
 /**
  * Names compiler-facing IL2CPP helpers from exported runtime entry points.

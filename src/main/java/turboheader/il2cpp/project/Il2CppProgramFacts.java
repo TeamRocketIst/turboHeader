@@ -1,4 +1,4 @@
-package turboheader.il2cpp.analysis;
+package turboheader.il2cpp.project;
 
 import java.util.Collection;
 import java.util.HashMap;

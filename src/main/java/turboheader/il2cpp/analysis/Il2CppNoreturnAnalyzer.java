@@ -14,6 +14,7 @@ import ghidra.program.model.listing.Function;
 import ghidra.program.model.listing.Instruction;
 import ghidra.program.model.listing.Program;
 import ghidra.util.task.TaskMonitor;
+import turboheader.il2cpp.project.Il2CppProgramFacts;
 
 /**
  * Java-owned IL2CPP noreturn pipeline.
