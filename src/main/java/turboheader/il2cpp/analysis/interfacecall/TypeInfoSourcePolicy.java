@@ -1,4 +1,4 @@
-package turboheader.il2cpp.analysis;
+package turboheader.il2cpp.analysis.interfacecall;
 
 final class TypeInfoSourcePolicy {
     private TypeInfoSourcePolicy() {

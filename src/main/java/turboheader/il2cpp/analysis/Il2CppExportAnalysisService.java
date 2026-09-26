@@ -13,6 +13,8 @@ import ghidra.program.model.listing.Program;
 import ghidra.util.exception.CancelledException;
 import ghidra.util.task.TaskMonitor;
 import turboheader.il2cpp.decompile.Il2CppFunctionPreparationService;
+import turboheader.il2cpp.analysis.interfacecall.Il2CppInterfaceCallAnalyzer;
+import turboheader.il2cpp.analysis.interfacecall.Il2CppInterfaceCallPublisher;
 
 public final class Il2CppExportAnalysisService {
     private static final List<String> GLOBAL_ANALYZERS = List.of(

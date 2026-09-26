@@ -21,15 +21,15 @@ import ghidra.program.model.symbol.SourceType;
 import turboheader.il2cpp.Il2CppExportPlanner;
 import turboheader.il2cpp.analysis.Il2CppExportAnalysisService;
 import turboheader.il2cpp.analysis.Il2CppHelperKind;
-import turboheader.il2cpp.analysis.Il2CppInterfaceCallAnalyzer;
-import turboheader.il2cpp.analysis.Il2CppInterfaceCallPublisher;
-import turboheader.il2cpp.analysis.Il2CppProgramFacts;
+import turboheader.il2cpp.analysis.interfacecall.Il2CppInterfaceCallAnalyzer;
+import turboheader.il2cpp.analysis.interfacecall.Il2CppInterfaceCallPublisher;
 import turboheader.il2cpp.decompile.Il2CppFunctionPreparationService;
 import turboheader.il2cpp.exporting.Il2CppClassCatalog;
 import turboheader.il2cpp.metadata.GhidraMethodImporter;
 import turboheader.il2cpp.metadata.Il2CppInterfaceDispatchCatalog;
 import turboheader.il2cpp.metadata.Il2CppInterfaceDispatchStore;
 import turboheader.il2cpp.metadata.ScriptMethodReader;
+import turboheader.il2cpp.project.Il2CppProgramFacts;
 
 public class VerifyTurboHeaderInterfaceDispatch extends GhidraScript {
     private static final long HELPER = 0x100;

@@ -1,4 +1,4 @@
-package turboheader.il2cpp.analysis;
+package turboheader.il2cpp.analysis.interfacecall;
 
 public final class TypeInfoSourcePolicyTest {
     public static void main(String[] args) {

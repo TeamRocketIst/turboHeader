@@ -16,16 +16,16 @@ javac --release 21 -d "$BUILD/classes" \
   "$ROOT/src/main/java/turboheader/il2cpp/analysis/Il2CppHelperKind.java" \
   "$ROOT/src/main/java/turboheader/il2cpp/analysis/Il2CppHelperNames.java" \
   "$ROOT/tests/java/turboheader/il2cpp/analysis/Il2CppHelperNamesTest.java" \
-  "$ROOT/src/main/java/turboheader/il2cpp/analysis/ExactSsaValueResolver.java" \
-  "$ROOT/tests/java/turboheader/il2cpp/analysis/ExactSsaValueResolverTest.java" \
-  "$ROOT/src/main/java/turboheader/il2cpp/analysis/SsaIdentityResolver.java" \
-  "$ROOT/src/main/java/turboheader/il2cpp/analysis/TypeInfoSourcePolicy.java" \
-  "$ROOT/src/main/java/turboheader/il2cpp/analysis/Il2CppInterfaceCallProof.java" \
-  "$ROOT/src/main/java/turboheader/il2cpp/analysis/InterfaceCallRejectionCounts.java" \
-  "$ROOT/tests/java/turboheader/il2cpp/analysis/Il2CppInterfaceCallProofTest.java" \
-  "$ROOT/tests/java/turboheader/il2cpp/analysis/SsaIdentityResolverTest.java" \
-  "$ROOT/tests/java/turboheader/il2cpp/analysis/TypeInfoSourcePolicyTest.java" \
-  "$ROOT/tests/java/turboheader/il2cpp/analysis/InterfaceCallRejectionCountsTest.java" \
+  "$ROOT/src/main/java/turboheader/il2cpp/analysis/interfacecall/ExactSsaValueResolver.java" \
+  "$ROOT/tests/java/turboheader/il2cpp/analysis/interfacecall/ExactSsaValueResolverTest.java" \
+  "$ROOT/src/main/java/turboheader/il2cpp/analysis/interfacecall/SsaIdentityResolver.java" \
+  "$ROOT/src/main/java/turboheader/il2cpp/analysis/interfacecall/TypeInfoSourcePolicy.java" \
+  "$ROOT/src/main/java/turboheader/il2cpp/analysis/interfacecall/Il2CppInterfaceCallProof.java" \
+  "$ROOT/src/main/java/turboheader/il2cpp/analysis/interfacecall/InterfaceCallRejectionCounts.java" \
+  "$ROOT/tests/java/turboheader/il2cpp/analysis/interfacecall/Il2CppInterfaceCallProofTest.java" \
+  "$ROOT/tests/java/turboheader/il2cpp/analysis/interfacecall/SsaIdentityResolverTest.java" \
+  "$ROOT/tests/java/turboheader/il2cpp/analysis/interfacecall/TypeInfoSourcePolicyTest.java" \
+  "$ROOT/tests/java/turboheader/il2cpp/analysis/interfacecall/InterfaceCallRejectionCountsTest.java" \
   "$ROOT/src/main/java/turboheader/il2cpp/analysis/Il2CppHelperProofPolicy.java" \
   "$ROOT/tests/java/turboheader/il2cpp/analysis/Il2CppHelperProofPolicyTest.java" \
   "$ROOT/src/main/java/turboheader/il2cpp/types/ImportDiagnostics.java" \
@@ -47,11 +47,11 @@ java -cp "$BUILD/classes" turboheader.il2cpp.metadata.MethodAssemblyIdentityTest
 java -cp "$BUILD/classes" turboheader.il2cpp.metadata.Il2CppStringLabelsTest
 java -cp "$BUILD/classes" turboheader.il2cpp.metadata.Il2CppMethodMetadataLabelsTest
 java -cp "$BUILD/classes" turboheader.il2cpp.analysis.Il2CppHelperNamesTest
-java -cp "$BUILD/classes" turboheader.il2cpp.analysis.ExactSsaValueResolverTest
-java -cp "$BUILD/classes" turboheader.il2cpp.analysis.Il2CppInterfaceCallProofTest
-java -cp "$BUILD/classes" turboheader.il2cpp.analysis.SsaIdentityResolverTest
-java -cp "$BUILD/classes" turboheader.il2cpp.analysis.TypeInfoSourcePolicyTest
-java -cp "$BUILD/classes" turboheader.il2cpp.analysis.InterfaceCallRejectionCountsTest
+java -cp "$BUILD/classes" turboheader.il2cpp.analysis.interfacecall.ExactSsaValueResolverTest
+java -cp "$BUILD/classes" turboheader.il2cpp.analysis.interfacecall.Il2CppInterfaceCallProofTest
+java -cp "$BUILD/classes" turboheader.il2cpp.analysis.interfacecall.SsaIdentityResolverTest
+java -cp "$BUILD/classes" turboheader.il2cpp.analysis.interfacecall.TypeInfoSourcePolicyTest
+java -cp "$BUILD/classes" turboheader.il2cpp.analysis.interfacecall.InterfaceCallRejectionCountsTest
 java -cp "$BUILD/classes" turboheader.il2cpp.analysis.Il2CppHelperProofPolicyTest
 
 javac --release 21 -cp "$BUILD/classes" -d "$BUILD/classes" \

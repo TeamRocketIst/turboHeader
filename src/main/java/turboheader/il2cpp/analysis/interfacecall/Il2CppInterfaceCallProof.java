@@ -1,4 +1,4 @@
-package turboheader.il2cpp.analysis;
+package turboheader.il2cpp.analysis.interfacecall;
 
 import java.util.Objects;
 import java.util.Optional;

@@ -1,4 +1,4 @@
-package turboheader.il2cpp.analysis;
+package turboheader.il2cpp.analysis.interfacecall;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -15,6 +15,7 @@ import ghidra.program.model.address.Address;
 import ghidra.program.model.listing.Function;
 import ghidra.program.model.listing.Program;
 import ghidra.util.task.TaskMonitor;
+import turboheader.il2cpp.analysis.Il2CppHelperKind;
 import turboheader.il2cpp.metadata.Il2CppInterfaceDispatchCatalog;
 import turboheader.il2cpp.metadata.Il2CppInterfaceDispatchStore;
 
