@@ -95,8 +95,7 @@ public final class Il2CppAnalysisProfile {
         if (noreturnSeeds != null) {
             return true;
         }
-        String processor = program.getLanguage().getProcessor().toString();
-        return processor.equalsIgnoreCase("AARCH64");
+        return Il2CppArchitectureSupport.inspect(program).supportsLocalNoreturn();
     }
 
     public record ProfileResult(List<String> enabledAnalyzers,

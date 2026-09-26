@@ -21,10 +21,12 @@ final class GhidraNoreturnDiscovery {
 
     private final Program program;
     private final Address imageBase;
+    private final ControlFlowDecoder decoder;
 
     GhidraNoreturnDiscovery(Program program) {
         this.program = program;
         this.imageBase = program.getImageBase();
+        this.decoder = Il2CppArchitectureSupport.inspect(program).requireControlFlowDecoder();
     }
 
     NoreturnProofEngine.Discovery discover(Set<Long> managedMethods) {
@@ -33,20 +35,11 @@ final class GhidraNoreturnDiscovery {
             throw new IllegalStateException(
                     "No executable terminal PLT thunks were resolved; run the ELF PLT thunk analyzer first");
         }
-        return new NoreturnProofEngine(this::readWord, managedMethods, terminals).discover();
+        return new NoreturnProofEngine(this::readWord, managedMethods, terminals, decoder).discover();
     }
 
     private Set<Long> terminalLeaves() {
-        ensureAarch64();
         return Set.copyOf(resolveExecutableTerminalThunks());
-    }
-
-    private void ensureAarch64() {
-        String processor = program.getLanguage().getProcessor().toString();
-        if (!processor.equalsIgnoreCase("AARCH64")) {
-            throw new IllegalStateException(
-                    "TurboHeader noreturn discovery currently supports AARCH64, not " + processor);
-        }
     }
 
     private Set<Long> resolveExecutableTerminalThunks() {

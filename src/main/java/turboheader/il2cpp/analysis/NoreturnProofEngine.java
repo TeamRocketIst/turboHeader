@@ -6,6 +6,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.OptionalInt;
 import java.util.Set;
 
@@ -13,7 +14,6 @@ import java.util.Set;
 final class NoreturnProofEngine {
     private static final int MAX_INSTRUCTIONS = 20_000;
     private static final long HELPER_LOCAL_SPAN = 0x4000L;
-    private static final long INSTRUCTION_SIZE = 4;
 
     interface WordSource {
         OptionalInt read(long address);
@@ -26,16 +26,23 @@ final class NoreturnProofEngine {
     private final WordSource words;
     private final Set<Long> managedMethods;
     private final Set<Long> terminalLeaves;
-    private final Aarch64ControlFlowDecoder decoder = new Aarch64ControlFlowDecoder();
+    private final ControlFlowDecoder decoder;
+    private final int instructionSize;
     private final Map<Long, Boolean> helperSummaries = new HashMap<>();
     private final Set<Long> activeHelpers = new HashSet<>();
     private long managedInstructions;
     private long helperInstructions;
 
-    NoreturnProofEngine(WordSource words, Set<Long> managedMethods, Set<Long> terminalLeaves) {
+    NoreturnProofEngine(WordSource words, Set<Long> managedMethods, Set<Long> terminalLeaves,
+            ControlFlowDecoder decoder) {
         this.words = words;
         this.managedMethods = Set.copyOf(managedMethods);
         this.terminalLeaves = Set.copyOf(terminalLeaves);
+        this.decoder = Objects.requireNonNull(decoder, "decoder");
+        this.instructionSize = decoder.instructionSize();
+        if (instructionSize <= 0) {
+            throw new IllegalArgumentException("decoder instruction size must be positive");
+        }
     }
 
     Discovery discover() {
@@ -88,8 +95,8 @@ final class NoreturnProofEngine {
                 case INDIRECT_CALL, OTHER -> pushNext(address, work);
                 case DIRECT_JUMP -> {
                     long target = instruction.target();
-                    OptionalInt previous = address >= entry + INSTRUCTION_SIZE
-                            ? words.read(address - INSTRUCTION_SIZE) : OptionalInt.empty();
+                    OptionalInt previous = address >= entry + instructionSize
+                            ? words.read(address - instructionSize) : OptionalInt.empty();
                     boolean tailBoundary = target != entry &&
                             (managedMethods.contains(target) ||
                             previous.isPresent() && decoder.isAbiTailTeardown(previous.getAsInt()));
@@ -188,8 +195,8 @@ final class NoreturnProofEngine {
     }
 
     private void pushNext(long address, ArrayDeque<Long> work) {
-        if (address <= Long.MAX_VALUE - INSTRUCTION_SIZE) {
-            work.push(address + INSTRUCTION_SIZE);
+        if (address <= Long.MAX_VALUE - instructionSize) {
+            work.push(address + instructionSize);
         }
     }
 

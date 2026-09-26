@@ -7,7 +7,7 @@ package turboheader.il2cpp.analysis;
  * for disassembly and decompilation; this classifier exists only for the whole-binary reachability
  * prepass where constructing millions of Sleigh instruction objects is measurably expensive.</p>
  */
-final class Aarch64ControlFlowDecoder {
+final class Aarch64ControlFlowDecoder implements ControlFlowDecoder {
     private static final long REGISTER_BRANCH_CLASS_MASK = 0xfe00_0000L;
     private static final long REGISTER_BRANCH_CLASS = 0xd600_0000L;
     private static final long REGISTER_BRANCH_OPCODE_MASK = 0xffff_fc1fL;
@@ -26,7 +26,13 @@ final class Aarch64ControlFlowDecoder {
     private static final long LOAD_PAIR_CLASS_MASK = 0x8040_0000L;
     private static final long LOAD_PAIR_CLASS = 0x8040_0000L;
 
-    DecodedInstruction decode(long address, int encoding) {
+    @Override
+    public int instructionSize() {
+        return Integer.BYTES;
+    }
+
+    @Override
+    public DecodedInstruction decode(long address, int encoding) {
         long word = Integer.toUnsignedLong(encoding);
         if ((word & REGISTER_BRANCH_CLASS_MASK) == REGISTER_BRANCH_CLASS) {
             long opcode = word & REGISTER_BRANCH_OPCODE_MASK;
@@ -62,7 +68,8 @@ final class Aarch64ControlFlowDecoder {
         return DecodedInstruction.simple(Kind.OTHER);
     }
 
-    boolean isAbiTailTeardown(int encoding) {
+    @Override
+    public boolean isAbiTailTeardown(int encoding) {
         long word = Integer.toUnsignedLong(encoding);
         long addressingMode = (word >>> 23) & 3;
         if ((word & LOAD_PAIR_CLASS_MASK) != LOAD_PAIR_CLASS ||
@@ -82,22 +89,5 @@ final class Aarch64ControlFlowDecoder {
         long signBit = 1L << (bits - 1);
         long signed = (immediate ^ signBit) - signBit;
         return address + (signed << 2);
-    }
-
-    enum Kind {
-        OTHER,
-        DIRECT_CALL,
-        INDIRECT_CALL,
-        DIRECT_JUMP,
-        INDIRECT_JUMP,
-        CONDITIONAL_BRANCH,
-        RETURN,
-        EXCEPTION
-    }
-
-    record DecodedInstruction(Kind kind, long target) {
-        static DecodedInstruction simple(Kind kind) {
-            return new DecodedInstruction(kind, 0);
-        }
     }
 }

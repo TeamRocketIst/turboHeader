@@ -12,6 +12,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import ghidra.app.cmd.disassemble.DisassembleCommand;
+import ghidra.app.cmd.function.CreateFunctionCmd;
 import ghidra.app.cmd.function.ApplyFunctionSignatureCmd;
 import ghidra.app.cmd.function.FunctionRenameOption;
 import ghidra.app.util.PseudoDisassembler;
@@ -61,6 +63,14 @@ public final class Il2CppExportedHelperAnalyzer {
                             new Parameter("target", "void**"),
                             new Parameter("value", "void*"))));
 
+    private static final HelperDefinition INTERFACE_INVOKE_DEFINITION =
+            new HelperDefinition(Il2CppHelperKind.INTERFACE_INVOKE_LOOKUP, null,
+                    TransferPreference.CALL, Relation.ANCHOR_ONLY,
+                    "VirtualInvokeData*", List.of(
+                            new Parameter("object", "Il2CppObject*"),
+                            new Parameter("interfaceType", "Il2CppClass*"),
+                            new Parameter("slot", "uint32_t")));
+
     private final Program program;
     private final List<Function> selectedFunctions;
     private final TaskMonitor monitor;
@@ -80,26 +90,26 @@ public final class Il2CppExportedHelperAnalyzer {
         Map<Il2CppHelperKind, ResolvedHelper> resolved = resolveExports();
         Set<Function> candidates = collectCompilerCallees();
         Map<Function, EnumSet<Il2CppHelperKind>> votes = classify(candidates, resolved);
+        var architecture = new GhidraArchitectureHelperAnalyzer(
+                program, selectedFunctions, monitor).analyze();
 
-        Map<Function, Il2CppHelperKind> proven = new LinkedHashMap<>();
-        Set<Function> conflictingAnchors = new HashSet<>();
+        Map<Address, Il2CppHelperKind> proven = new LinkedHashMap<>();
+        Set<Address> conflictingAnchors = new HashSet<>();
         int ambiguous = 0;
         for (ResolvedHelper helper : resolved.values()) {
-            Function anchor = helper.anchor();
+            Address anchor = helper.anchor().getEntryPoint();
             if (conflictingAnchors.contains(anchor)) {
                 continue;
             }
             Il2CppHelperKind kind = helper.definition().kind();
-            Il2CppHelperKind previous = proven.putIfAbsent(anchor, kind);
-            if (previous != null && previous != kind) {
-                proven.remove(anchor);
-                conflictingAnchors.add(anchor);
+            if (mergeIdentity(proven, conflictingAnchors, anchor, kind)) {
                 ambiguous++;
             }
         }
 
         for (var entry : votes.entrySet()) {
-            if (conflictingAnchors.contains(entry.getKey())) {
+            Address address = entry.getKey().getEntryPoint();
+            if (conflictingAnchors.contains(address)) {
                 continue;
             }
             if (entry.getValue().size() != 1) {
@@ -107,9 +117,18 @@ public final class Il2CppExportedHelperAnalyzer {
                 continue;
             }
             Il2CppHelperKind kind = entry.getValue().iterator().next();
-            Il2CppHelperKind previous = proven.putIfAbsent(entry.getKey(), kind);
-            if (previous != null && previous != kind) {
-                proven.remove(entry.getKey());
+            if (mergeIdentity(proven, conflictingAnchors, address, kind)) {
+                ambiguous++;
+            }
+        }
+
+        for (var evidence : architecture.proof().evidence()) {
+            Address address = imageAddress(evidence.helperAddress());
+            if (address == null) {
+                ambiguous++;
+                continue;
+            }
+            if (mergeIdentity(proven, conflictingAnchors, address, evidence.kind())) {
                 ambiguous++;
             }
         }
@@ -122,13 +141,13 @@ public final class Il2CppExportedHelperAnalyzer {
         int transaction = program.startTransaction("TurboHeader IL2CPP helper identities");
         boolean commit = false;
         try {
-            List<Map.Entry<Function, Il2CppHelperKind>> ordered =
+            List<Map.Entry<Address, Il2CppHelperKind>> ordered =
                     new ArrayList<>(proven.entrySet());
             ordered.sort(Map.Entry.comparingByKey(
-                    Comparator.comparing(Function::getEntryPoint)));
+                    Comparator.naturalOrder()));
             for (var entry : ordered) {
                 monitor.checkCancelled();
-                Function function = entry.getKey();
+                Function function = ensureFunction(entry.getKey());
                 Il2CppHelperKind kind = entry.getValue();
                 HelperDefinition definition = definition(kind);
                 switch (namer.rename(function, kind)) {
@@ -150,13 +169,25 @@ public final class Il2CppExportedHelperAnalyzer {
         }
 
         Map<Il2CppHelperKind, Address> anchors = new EnumMap<>(Il2CppHelperKind.class);
-        for (var entry : resolved.entrySet()) {
-            anchors.put(entry.getKey(), entry.getValue().anchor().getEntryPoint());
+        Set<Il2CppHelperKind> duplicateKinds = EnumSet.noneOf(Il2CppHelperKind.class);
+        for (var entry : proven.entrySet()) {
+            Il2CppHelperKind kind = entry.getValue();
+            if (duplicateKinds.contains(kind)) {
+                continue;
+            }
+            Address previous = anchors.putIfAbsent(kind, entry.getKey());
+            if (previous != null && !previous.equals(entry.getKey())) {
+                anchors.remove(kind);
+                duplicateKinds.add(kind);
+            }
         }
         return new AnalysisStats(selectedFunctions.size(), resolved.size(), candidates.size(),
-                proven.size(), ambiguous, renamed, alreadyNamed, preserved, typed,
+                architecture.proof().callsiteCandidates(),
+                architecture.proof().helperCandidates(), architecture.proof().evidence().size(),
+                architecture.proof().rejectedHelpers(), proven.size(), ambiguous,
+                renamed, alreadyNamed, preserved, typed,
                 Map.copyOf(anchors), Map.copyOf(provenByKind),
-                System.nanoTime() - started);
+                architecture.elapsedNanos(), System.nanoTime() - started);
     }
 
     private Map<Il2CppHelperKind, ResolvedHelper> resolveExports() throws Exception {
@@ -382,6 +413,54 @@ public final class Il2CppExportedHelperAnalyzer {
         return current;
     }
 
+    private boolean mergeIdentity(Map<Address, Il2CppHelperKind> proven,
+            Set<Address> conflicts, Address address, Il2CppHelperKind kind) {
+        if (conflicts.contains(address)) {
+            return false;
+        }
+        Il2CppHelperKind previous = proven.putIfAbsent(address, kind);
+        if (previous == null || previous == kind) {
+            return false;
+        }
+        proven.remove(address);
+        conflicts.add(address);
+        return true;
+    }
+
+    private Address imageAddress(long offset) {
+        if (offset < 0) {
+            return null;
+        }
+        try {
+            Address address = program.getImageBase().add(offset);
+            var block = program.getMemory().getBlock(address);
+            return block != null && block.isExecute() ? address : null;
+        }
+        catch (RuntimeException e) {
+            return null;
+        }
+    }
+
+    private Function ensureFunction(Address address) {
+        Function existing = program.getFunctionManager().getFunctionAt(address);
+        if (existing != null) {
+            return existing;
+        }
+        DisassembleCommand disassemble = new DisassembleCommand(address, null, true);
+        disassemble.enableCodeAnalysis(false);
+        disassemble.applyTo(program, monitor);
+        CreateFunctionCmd create = new CreateFunctionCmd(address);
+        if (!create.applyTo(program, monitor)) {
+            throw new IllegalStateException(
+                    "Could not create helper at " + address + ": " + create.getStatusMsg());
+        }
+        Function created = program.getFunctionManager().getFunctionAt(address);
+        if (created == null) {
+            throw new IllegalStateException("Helper creation produced no function at " + address);
+        }
+        return created;
+    }
+
     private void applySignature(Function function, HelperDefinition definition) {
         String name = Il2CppHelperNames.mappedName(
                 definition.kind(), function.getEntryPoint().getOffset());
@@ -414,6 +493,9 @@ public final class Il2CppExportedHelperAnalyzer {
     }
 
     private static HelperDefinition definition(Il2CppHelperKind kind) {
+        if (kind == Il2CppHelperKind.INTERFACE_INVOKE_LOOKUP) {
+            return INTERFACE_INVOKE_DEFINITION;
+        }
         return DEFINITIONS.stream()
                 .filter(definition -> definition.kind() == kind)
                 .findFirst()
@@ -448,10 +530,17 @@ public final class Il2CppExportedHelperAnalyzer {
     }
 
     public record AnalysisStats(int selectedFunctions, int resolvedExports,
-            int compilerCandidates, int provenHelpers, int ambiguousCandidates,
+            int compilerCandidates, int architectureCallsites, int architectureCandidates,
+            int architectureProofs, int architectureRejected, int provenHelpers,
+            int ambiguousCandidates,
             int renamed, int alreadyNamed, int preserved, int typed,
             Map<Il2CppHelperKind, Address> anchors,
-            Map<Il2CppHelperKind, Integer> provenByKind, long elapsedNanos) {
+            Map<Il2CppHelperKind, Integer> provenByKind,
+            long architectureProofNanos, long elapsedNanos) {
+        public double architectureProofSeconds() {
+            return architectureProofNanos / 1_000_000_000.0;
+        }
+
         public double elapsedSeconds() {
             return elapsedNanos / 1_000_000_000.0;
         }

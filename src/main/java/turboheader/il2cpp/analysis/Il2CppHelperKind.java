@@ -7,6 +7,7 @@ public enum Il2CppHelperKind {
     ARRAY_NEW("il2cpp_array_new"),
     CLASS_INIT("il2cpp_class_init"),
     GC_WRITE_BARRIER("il2cpp_gc_wbarrier"),
+    INTERFACE_INVOKE_LOOKUP("il2cpp_GetInterfaceInvokeDataFromVTableSlowPath"),
     THROW("il2cpp_throw");
 
     private final String stem;

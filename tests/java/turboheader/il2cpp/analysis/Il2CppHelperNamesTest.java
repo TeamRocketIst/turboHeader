@@ -8,6 +8,10 @@ public final class Il2CppHelperNamesTest {
                 .equals("il2cpp_object_new_015ed724"), "object helper name");
         require(Il2CppHelperNames.mappedName(Il2CppHelperKind.GC_WRITE_BARRIER, 0x1624d84L)
                 .equals("il2cpp_gc_wbarrier_01624d84"), "write-barrier helper name");
+        require(Il2CppHelperNames.mappedName(
+                Il2CppHelperKind.INTERFACE_INVOKE_LOOKUP, 0x5000L).equals(
+                "il2cpp_GetInterfaceInvokeDataFromVTableSlowPath_00005000"),
+                "interface lookup helper name");
         System.out.println("IL2CPP helper-name tests passed");
     }
 
