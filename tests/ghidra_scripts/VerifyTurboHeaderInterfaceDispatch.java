@@ -19,7 +19,7 @@ import ghidra.program.model.symbol.RefType;
 import ghidra.program.model.symbol.Reference;
 import ghidra.program.model.symbol.SourceType;
 import turboheader.il2cpp.Il2CppExportPlanner;
-import turboheader.il2cpp.analysis.Il2CppExportAnalysisService;
+import turboheader.il2cpp.analysis.pipeline.Il2CppExportAnalysisService;
 import turboheader.il2cpp.analysis.helpers.Il2CppHelperKind;
 import turboheader.il2cpp.analysis.interfacecall.Il2CppInterfaceCallAnalyzer;
 import turboheader.il2cpp.analysis.interfacecall.Il2CppInterfaceCallPublisher;
