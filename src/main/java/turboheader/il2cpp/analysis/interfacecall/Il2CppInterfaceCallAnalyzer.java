@@ -47,19 +47,24 @@ public final class Il2CppInterfaceCallAnalyzer {
         }
 
         Set<Address> objectNewTargets = helperTargets(program, objectNewHelper);
+        long candidateSelectionStarted = System.nanoTime();
         CandidateSelection selection = candidates(
                 program, selectedFunctions, interfaceHelper, objectNewTargets, monitor);
+        long candidateSelectionNanos = System.nanoTime() - candidateSelectionStarted;
         List<Function> candidates = selection.functions();
         if (candidates.isEmpty()) {
             return new AnalysisStats(Outcome.COMPLETE, 0,
                     selection.prefilteredFunctions(), 0, 0, 0, 0, 0, 0,
                     InterfaceCallRejectionCounts.none(), List.of(), List.of(),
+                    new PhaseTiming(candidateSelectionNanos, 0, 0, 0), List.of(),
                     System.nanoTime() - started);
         }
 
         long modificationNumber = program.getModificationNumber();
         var catalog = stored.orElseThrow();
+        long typeInfoStarted = System.nanoTime();
         var typeInfoSources = GhidraTypeInfoSources.collect(program, catalog);
+        long typeInfoNanos = System.nanoTime() - typeInfoStarted;
         var resolver = new GhidraPcodeInterfaceCallResolver(
                 interfaceHelper, objectNewTargets, program.getDefaultPointerSize(),
                 typeInfoSources, catalog);
@@ -72,6 +77,9 @@ public final class Il2CppInterfaceCallAnalyzer {
         int failed = 0;
         int helperCalls = 0;
         int associatedCalls = 0;
+        long decompilationNanos = 0;
+        long resolutionNanos = 0;
+        List<FunctionTiming> functionTimings = new ArrayList<>();
 
         DecompInterface decompiler = new DecompInterface();
         try {
@@ -81,14 +89,25 @@ public final class Il2CppInterfaceCallAnalyzer {
             }
             for (Function candidate : candidates) {
                 monitor.checkCancelled();
+                long decompileStarted = System.nanoTime();
                 var decompiled = decompiler.decompileFunction(
                         candidate, DECOMPILE_TIMEOUT_SECONDS, monitor);
+                long functionDecompileNanos = System.nanoTime() - decompileStarted;
+                decompilationNanos += functionDecompileNanos;
                 if (!decompiled.decompileCompleted() || decompiled.getHighFunction() == null) {
                     failed++;
+                    functionTimings.add(new FunctionTiming(candidate.getEntryPoint(), false,
+                            functionDecompileNanos, 0, 0, 0));
                     continue;
                 }
                 completed++;
+                long resolutionStarted = System.nanoTime();
                 var result = resolver.resolve(decompiled.getHighFunction());
+                long functionResolutionNanos = System.nanoTime() - resolutionStarted;
+                resolutionNanos += functionResolutionNanos;
+                functionTimings.add(new FunctionTiming(candidate.getEntryPoint(), true,
+                        functionDecompileNanos, functionResolutionNanos,
+                        result.helperCalls(), result.associatedCalls()));
                 helperCalls += result.helperCalls();
                 associatedCalls += result.associatedCalls();
                 for (var call : result.calls()) {
@@ -134,11 +153,13 @@ public final class Il2CppInterfaceCallAnalyzer {
         }
         proofs.addAll(byCallsite.values());
         proofs.sort(Comparator.comparing(ProvenCall::callsite));
+        long elapsedNanos = System.nanoTime() - started;
         return new AnalysisStats(Outcome.COMPLETE, candidates.size(),
                 selection.prefilteredFunctions(), completed, failed,
                 helperCalls, associatedCalls, proofs.size(), conflicts.size(),
                 InterfaceCallRejectionCounts.count(rejectionReasons), rejectionSamples, proofs,
-                System.nanoTime() - started);
+                new PhaseTiming(candidateSelectionNanos, typeInfoNanos,
+                        decompilationNanos, resolutionNanos), functionTimings, elapsedNanos);
     }
 
     private static Set<Address> helperTargets(Program program, Address canonicalAddress) {
@@ -226,6 +247,7 @@ public final class Il2CppInterfaceCallAnalyzer {
     private static AnalysisStats empty(Outcome outcome, long started) {
         return new AnalysisStats(outcome, 0, 0, 0, 0, 0, 0, 0, 0,
                 InterfaceCallRejectionCounts.none(), List.of(), List.of(),
+                PhaseTiming.empty(), List.of(),
                 System.nanoTime() - started);
     }
 
@@ -264,16 +286,76 @@ public final class Il2CppInterfaceCallAnalyzer {
         }
     }
 
+    public record PhaseTiming(long candidateSelectionNanos, long typeInfoNanos,
+            long decompilationNanos, long resolutionNanos) {
+        public PhaseTiming {
+            if (candidateSelectionNanos < 0 || typeInfoNanos < 0 ||
+                    decompilationNanos < 0 || resolutionNanos < 0) {
+                throw new IllegalArgumentException("interface-call timing must not be negative");
+            }
+        }
+
+        static PhaseTiming empty() {
+            return new PhaseTiming(0, 0, 0, 0);
+        }
+
+        public long measuredNanos() {
+            return candidateSelectionNanos + typeInfoNanos +
+                    decompilationNanos + resolutionNanos;
+        }
+
+        public double candidateSelectionSeconds() {
+            return seconds(candidateSelectionNanos);
+        }
+
+        public double typeInfoSeconds() {
+            return seconds(typeInfoNanos);
+        }
+
+        public double decompilationSeconds() {
+            return seconds(decompilationNanos);
+        }
+
+        public double resolutionSeconds() {
+            return seconds(resolutionNanos);
+        }
+
+        private static double seconds(long nanos) {
+            return nanos / 1_000_000_000.0;
+        }
+    }
+
+    public record FunctionTiming(Address entry, boolean completed,
+            long decompilationNanos, long resolutionNanos,
+            int helperCalls, int associatedCalls) {
+        public FunctionTiming {
+            Objects.requireNonNull(entry, "entry");
+            if (decompilationNanos < 0 || resolutionNanos < 0 || helperCalls < 0 ||
+                    associatedCalls < 0 || associatedCalls > helperCalls ||
+                    !completed && (resolutionNanos != 0 || helperCalls != 0 ||
+                            associatedCalls != 0)) {
+                throw new IllegalArgumentException("invalid interface-call function timing");
+            }
+        }
+
+        public long elapsedNanos() {
+            return decompilationNanos + resolutionNanos;
+        }
+    }
+
     public record AnalysisStats(Outcome outcome, int candidateFunctions,
             int prefilteredFunctions, int completedFunctions, int failedFunctions,
             int helperCalls, int associatedCalls, int provenCalls, int conflictingCallsites,
             InterfaceCallRejectionCounts rejections, List<RejectedCall> rejectionSamples,
-            List<ProvenCall> proofs, long elapsedNanos) {
+            List<ProvenCall> proofs, PhaseTiming timing,
+            List<FunctionTiming> functionTimings, long elapsedNanos) {
         public AnalysisStats {
             Objects.requireNonNull(outcome, "outcome");
             Objects.requireNonNull(rejections, "rejections");
+            Objects.requireNonNull(timing, "timing");
             rejectionSamples = List.copyOf(rejectionSamples);
             proofs = List.copyOf(proofs);
+            functionTimings = List.copyOf(functionTimings);
             if (candidateFunctions < 0 || prefilteredFunctions < 0 ||
                     completedFunctions < 0 || failedFunctions < 0 ||
                     completedFunctions + failedFunctions > candidateFunctions ||
@@ -282,7 +364,9 @@ public final class Il2CppInterfaceCallAnalyzer {
                     provenCalls != proofs.size() ||
                     rejections.total() > associatedCalls ||
                     rejectionSamples.size() > MAX_REJECTION_SAMPLES ||
-                    rejectionSamples.size() > rejections.total() || elapsedNanos < 0) {
+                    rejectionSamples.size() > rejections.total() ||
+                    functionTimings.size() != completedFunctions + failedFunctions ||
+                    timing.measuredNanos() > elapsedNanos || elapsedNanos < 0) {
                 throw new IllegalArgumentException("invalid interface-call statistics");
             }
         }

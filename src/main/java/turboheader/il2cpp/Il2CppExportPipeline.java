@@ -1,11 +1,13 @@
 package turboheader.il2cpp;
 
+import java.util.Comparator;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.function.Consumer;
 
 import ghidra.program.model.listing.Program;
 import ghidra.util.task.TaskMonitor;
+import turboheader.il2cpp.analysis.interfacecall.Il2CppInterfaceCallAnalyzer;
 import turboheader.il2cpp.analysis.pipeline.Il2CppExportAnalysisService;
 import turboheader.il2cpp.analysis.noreturn.Il2CppNoreturnAnalyzer;
 import turboheader.il2cpp.decompile.Il2CppDecompilationCoordinator;
@@ -15,6 +17,9 @@ import turboheader.il2cpp.decompile.Il2CppFunctionPreparationService;
 import turboheader.il2cpp.exporting.Il2CppExportWriter;
 
 public final class Il2CppExportPipeline {
+    private static final String INTERFACE_PROFILE_PROPERTY =
+            "turboheader.profile.interfacecalls";
+
     private Il2CppExportPipeline() {
     }
 
@@ -87,6 +92,9 @@ public final class Il2CppExportPipeline {
                 after.interfaceCalls().rejections().summary(),
                 after.interfaceCalls().elapsedSeconds() +
                 after.publishedInterfaceCalls().elapsedSeconds()));
+        if (Boolean.getBoolean(INTERFACE_PROFILE_PROPERTY)) {
+            printInterfaceProfile(after, output);
+        }
         for (var sample : after.interfaceCalls().rejectionSamples()) {
             output.accept(String.format(Locale.ROOT,
                     "TurboHeader interface rejection: helper=%s, callind=%s, reason=%s.",
@@ -129,6 +137,32 @@ public final class Il2CppExportPipeline {
 
         return new PipelineResult(plan, before, preparation, after, decompilation,
                 writing, scanNanos, analysisNanos, decompilationNanos, totalNanos);
+    }
+
+    private static void printInterfaceProfile(
+            Il2CppExportAnalysisService.AfterPreparationResult after,
+            Consumer<String> output) {
+        var calls = after.interfaceCalls();
+        var timing = calls.timing();
+        long otherNanos = Math.max(0, calls.elapsedNanos() - timing.measuredNanos());
+        output.accept(String.format(Locale.ROOT,
+                "TurboHeader interface profile: candidate-scan=%.3fs, typeinfo=%.3fs, " +
+                "decompile=%.3fs, resolve=%.3fs, other=%.3fs, publish=%.3fs.",
+                timing.candidateSelectionSeconds(), timing.typeInfoSeconds(),
+                timing.decompilationSeconds(), timing.resolutionSeconds(),
+                seconds(otherNanos), after.publishedInterfaceCalls().elapsedSeconds()));
+
+        calls.functionTimings().stream()
+                .sorted(Comparator.comparingLong(
+                        Il2CppInterfaceCallAnalyzer.FunctionTiming::elapsedNanos).reversed())
+                .limit(8)
+                .forEach(sample -> output.accept(String.format(Locale.ROOT,
+                        "TurboHeader interface candidate: entry=%s, completed=%s, " +
+                        "decompile=%.3fs, resolve=%.3fs, associated=%d/%d.",
+                        sample.entry(), sample.completed(),
+                        seconds(sample.decompilationNanos()),
+                        seconds(sample.resolutionNanos()),
+                        sample.associatedCalls(), sample.helperCalls())));
     }
 
     private static String decompilationSummary(

@@ -191,6 +191,20 @@ public class VerifyTurboHeaderInterfaceDispatch extends GhidraScript {
         require(calls.helperCalls() == 1 && calls.associatedCalls() == 1 &&
                 calls.provenCalls() == 1 && calls.conflictingCallsites() == 0,
                 "interface-call proof statistics differ: " + calls);
+        require(calls.functionTimings().size() == 1 &&
+                calls.functionTimings().getFirst().completed() &&
+                calls.functionTimings().getFirst().entry().equals(function.getEntryPoint()),
+                "interface-call function timing differs");
+        long measuredDecompilation = calls.functionTimings().stream()
+                .mapToLong(Il2CppInterfaceCallAnalyzer.FunctionTiming::decompilationNanos)
+                .sum();
+        long measuredResolution = calls.functionTimings().stream()
+                .mapToLong(Il2CppInterfaceCallAnalyzer.FunctionTiming::resolutionNanos)
+                .sum();
+        require(calls.timing().decompilationNanos() == measuredDecompilation &&
+                calls.timing().resolutionNanos() == measuredResolution &&
+                calls.timing().measuredNanos() <= calls.elapsedNanos(),
+                "interface-call phase timing differs");
         require(calls.rejections().total() == 0 &&
                 calls.rejections().summary().equals("none") &&
                 calls.rejectionSamples().isEmpty(),
