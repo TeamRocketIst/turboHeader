@@ -14,6 +14,8 @@ import turboheader.il2cpp.metadata.GhidraMethodImporter;
 import turboheader.il2cpp.metadata.GhidraMethodMetadataImporter;
 import turboheader.il2cpp.metadata.GhidraRelocationImporter;
 import turboheader.il2cpp.metadata.GhidraStringImporter;
+import turboheader.il2cpp.metadata.Il2CppInterfaceDispatchCatalog;
+import turboheader.il2cpp.metadata.Il2CppInterfaceDispatchStore;
 import turboheader.il2cpp.metadata.ScriptMethodReader;
 
 /** Imports script.json annotations and managed method signatures into a program. */
@@ -34,10 +36,15 @@ public final class Il2CppMetadataImportService {
     public void importScript(Path script) throws Exception {
         output.accept("TurboHeader: reading script metadata...");
         var scriptData = ScriptMethodReader.readAll(script);
+        var interfaceDispatch = Il2CppInterfaceDispatchCatalog.fromScript(scriptData);
+        int interfaceDispatchEntries = interfaceDispatch
+                .map(catalog -> catalog.methodAddresses().size()).orElse(0);
         output.accept(String.format(
-                "TurboHeader script: %,d strings, %,d metadata slots, %,d method slots, %,d methods.",
+                "TurboHeader script: %,d strings, %,d metadata slots, %,d method slots, " +
+                "%,d methods, %,d interface dispatch entries.",
                 scriptData.strings().size(), scriptData.metadata().size(),
-                scriptData.metadataMethods().size(), scriptData.methods().size()));
+                scriptData.metadataMethods().size(), scriptData.methods().size(),
+                interfaceDispatchEntries));
 
         var stringResult = new GhidraStringImporter(program, monitor)
                 .importStrings(scriptData.strings());
@@ -132,6 +139,12 @@ public final class Il2CppMetadataImportService {
                     methodMetadataStats.failed(), methodMetadataStats.total(),
                     relocationStats.failed(), methodStats.failed(), methodStats.total()));
         }
+
+        Il2CppInterfaceDispatchStore.replace(program, interfaceDispatch);
+        output.accept(interfaceDispatch.isPresent()
+                ? String.format("TurboHeader interface dispatch: %,d entries stored.",
+                        interfaceDispatchEntries)
+                : "TurboHeader interface dispatch: not supplied.");
     }
 
     private void reportFailures(String countPrefix, String samplePrefix,

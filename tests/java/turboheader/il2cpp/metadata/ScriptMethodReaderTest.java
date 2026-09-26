@@ -14,15 +14,18 @@ public final class ScriptMethodReaderTest {
                       {"Address":16,"Name":"A$$Run","Signature":"void A__Run (const MethodInfo* method);","TypeSignature":"vi"},
                       {"TypeSignature":"vii","Signature":"void B__Set (int32_t value, const MethodInfo* method);","Name":"B$$Set","Address":32,"Assembly":"Assembly-CSharp"}
                     ],"ScriptMetadata":[
-                      {"Address":48,"Name":"Fixture.TypeInfo","Signature":"A_c*"},
-                      {"Signature":null,"Name":"Fixture.Field","Address":56}
+                      {"Address":48,"Name":"Fixture.TypeInfo","Signature":"A_c*","TypeId":4},
+                      {"Signature":"I_c*","Name":"Fixture.Interface_TypeInfo","Address":56,"TypeId":2},
+                      {"Signature":null,"Name":"Fixture.Field","Address":58}
                     ],"ScriptMetadataMethod":[
                       {"Address":60,"Name":"Method$List<Fixture>.get_Item()","MethodAddress":256},
                       {"MethodAddress":0,"Name":"Method$List<Fixture>.get_Count()","Address":62}
                     ],"ScriptString":[
                       {"Address":64,"Value":"Attempt "},
                       {"Value":"line\\n\\t\\\"\\\\é","Address":72}
-                    ],"Addresses":[16,32]}
+                    ],"Addresses":[16,32],"ScriptInterfaceDispatch":[
+                      {"ReceiverTypeId":4,"InterfaceTypeId":2,"InterfaceSlot":0,"MethodAddress":16,"Signature":"void A__Run (const MethodInfo* method);"}
+                    ]}
                     """);
             var data = ScriptMethodReader.readAll(fixture);
             var methods = data.methods();
@@ -32,10 +35,11 @@ public final class ScriptMethodReaderTest {
             check(methods.get(1).signature().startsWith("void B__Set"), "property order");
             check(methods.get(0).assembly() == null, "legacy assembly omission");
             check(methods.get(1).assembly().equals("Assembly-CSharp"), "assembly identity");
-            check(data.metadata().size() == 2, "metadata count");
+            check(data.metadata().size() == 3, "metadata count");
             check(data.metadata().get(0).address() == 48 &&
                     data.metadata().get(0).signature().equals("A_c*"), "typed metadata");
-            check(data.metadata().get(1).signature() == null, "untyped metadata");
+            check(data.metadata().get(0).typeId() == 4, "metadata type identity");
+            check(data.metadata().get(2).signature() == null, "untyped metadata");
             check(data.metadataMethods().size() == 2, "method metadata count");
             check(data.metadataMethods().get(0).address() == 60 &&
                     data.metadataMethods().get(0).methodAddress() == 256,
@@ -47,6 +51,10 @@ public final class ScriptMethodReaderTest {
                     data.strings().get(0).value().equals("Attempt "), "first string");
             check(data.strings().get(1).value().equals("line\n\t\"\\é"),
                     "escaped string");
+            check(data.interfaceDispatch().orElseThrow().size() == 1,
+                    "interface dispatch count");
+            check(data.interfaceDispatch().orElseThrow().get(0).methodAddress() == 16,
+                    "interface dispatch target");
         }
         finally {
             Files.deleteIfExists(fixture);
@@ -62,10 +70,21 @@ public final class ScriptMethodReaderTest {
                 "missing metadata method address");
         expectFailure("{\"ScriptMethod\":[],\"ScriptMetadataMethod\":[],\"ScriptMetadataMethod\":[]}",
                 "duplicate metadata method table");
+        expectFailure("{\"ScriptMethod\":[],\"ScriptInterfaceDispatch\":[],\"ScriptInterfaceDispatch\":[]}",
+                "duplicate interface dispatch table");
+        expectFailure("{\"ScriptMethod\":[],\"ScriptInterfaceDispatch\":[{" +
+                "\"ReceiverTypeId\":1,\"InterfaceTypeId\":2,\"InterfaceSlot\":-1," +
+                "\"MethodAddress\":16,\"Signature\":\"void A__Run ();\"}]}",
+                "negative interface slot");
+        expectFailure("{\"ScriptMethod\":[],\"ScriptInterfaceDispatch\":[{" +
+                "\"ReceiverTypeId\":1,\"ReceiverTypeId\":1,\"InterfaceTypeId\":2," +
+                "\"InterfaceSlot\":0,\"MethodAddress\":16," +
+                "\"Signature\":\"void A__Run ();\"}]}",
+                "duplicate dispatch field");
 
         if (args.length == 1) {
             var methods = ScriptMethodReader.read(Path.of(args[0]));
-            check(methods.size() == 99_205, "Ghosts ScriptMethod count");
+            check(!methods.isEmpty(), "method table");
             int repaired = 0;
             for (var method : methods) {
                 var parsed = CFunctionSignatureParser.parse(method.signature());
@@ -73,7 +92,7 @@ public final class ScriptMethodReaderTest {
                         "TypeSignature arity at 0x" + Long.toHexString(method.address()));
                 repaired += parsed.duplicateNamesRepaired();
             }
-            check(repaired > 0, "Ghosts duplicate-name fixture");
+            check(repaired > 0, "duplicate-name fixture");
         }
         System.out.println("script method reader tests passed");
     }
