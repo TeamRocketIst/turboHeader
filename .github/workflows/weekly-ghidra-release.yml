@@ -1,8 +1,6 @@
 name: Weekly Ghidra compatibility release
 
 on:
-  schedule:
-    - cron: "17 6 * * 1"
   workflow_dispatch:
     inputs:
       ghidra_tag:
