@@ -97,6 +97,7 @@ public final class Il2CppExportPipeline {
             printInterfaceTiming(after, output);
             if (Boolean.getBoolean(INTERFACE_PROFILE_PROPERTY)) {
                 printSlowInterfaceCandidates(after.interfaceCalls(), output);
+                printInterfaceProofs(after.interfaceCalls(), output);
             }
         }
         for (var sample : after.interfaceCalls().rejectionSamples()) {
@@ -171,6 +172,18 @@ public final class Il2CppExportPipeline {
                         seconds(sample.decompilationNanos()),
                         seconds(sample.resolutionNanos()),
                         sample.associatedCalls(), sample.helperCalls())));
+    }
+
+    private static void printInterfaceProofs(
+            Il2CppInterfaceCallAnalyzer.AnalysisStats calls,
+            Consumer<String> output) {
+        for (var proof : calls.proofs()) {
+            output.accept(String.format(Locale.ROOT,
+                    "TurboHeader interface proof: callsite=%s, target=%s, " +
+                    "receiver=%d, interface=%d, slot=%d.",
+                    proof.callsite(), proof.target(), proof.receiverTypeId(),
+                    proof.interfaceTypeId(), proof.interfaceSlot()));
+        }
     }
 
     private static String decompilationSummary(
