@@ -1,4 +1,4 @@
-package turboheader.il2cpp.analysis;
+package turboheader.il2cpp.analysis.helpers;
 
 /** Conservative structural requirements for propagating a helper identity across one edge. */
 final class Il2CppHelperProofPolicy {

@@ -15,6 +15,8 @@ import ghidra.util.task.TaskMonitor;
 import turboheader.il2cpp.decompile.Il2CppFunctionPreparationService;
 import turboheader.il2cpp.analysis.interfacecall.Il2CppInterfaceCallAnalyzer;
 import turboheader.il2cpp.analysis.interfacecall.Il2CppInterfaceCallPublisher;
+import turboheader.il2cpp.analysis.helpers.Il2CppExportedHelperAnalyzer;
+import turboheader.il2cpp.analysis.helpers.Il2CppRuntimeMetadataAnalyzer;
 
 public final class Il2CppExportAnalysisService {
     private static final List<String> GLOBAL_ANALYZERS = List.of(

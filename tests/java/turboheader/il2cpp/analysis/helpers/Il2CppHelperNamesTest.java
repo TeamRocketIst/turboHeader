@@ -1,4 +1,4 @@
-package turboheader.il2cpp.analysis;
+package turboheader.il2cpp.analysis.helpers;
 
 public final class Il2CppHelperNamesTest {
     public static void main(String[] args) {

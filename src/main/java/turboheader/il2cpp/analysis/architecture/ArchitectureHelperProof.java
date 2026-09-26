@@ -4,7 +4,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.OptionalInt;
 import java.util.Set;
-import turboheader.il2cpp.analysis.Il2CppHelperKind;
+import turboheader.il2cpp.analysis.helpers.Il2CppHelperKind;
 
 public interface ArchitectureHelperProof {
     Result analyze(Input input);

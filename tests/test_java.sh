@@ -13,9 +13,9 @@ javac --release 21 -d "$BUILD/classes" \
   "$ROOT/tests/java/turboheader/il2cpp/metadata/Il2CppStringLabelsTest.java" \
   "$ROOT/src/main/java/turboheader/il2cpp/metadata/Il2CppMethodMetadataLabels.java" \
   "$ROOT/tests/java/turboheader/il2cpp/metadata/Il2CppMethodMetadataLabelsTest.java" \
-  "$ROOT/src/main/java/turboheader/il2cpp/analysis/Il2CppHelperKind.java" \
-  "$ROOT/src/main/java/turboheader/il2cpp/analysis/Il2CppHelperNames.java" \
-  "$ROOT/tests/java/turboheader/il2cpp/analysis/Il2CppHelperNamesTest.java" \
+  "$ROOT/src/main/java/turboheader/il2cpp/analysis/helpers/Il2CppHelperKind.java" \
+  "$ROOT/src/main/java/turboheader/il2cpp/analysis/helpers/Il2CppHelperNames.java" \
+  "$ROOT/tests/java/turboheader/il2cpp/analysis/helpers/Il2CppHelperNamesTest.java" \
   "$ROOT/src/main/java/turboheader/il2cpp/analysis/interfacecall/ExactSsaValueResolver.java" \
   "$ROOT/tests/java/turboheader/il2cpp/analysis/interfacecall/ExactSsaValueResolverTest.java" \
   "$ROOT/src/main/java/turboheader/il2cpp/analysis/interfacecall/SsaIdentityResolver.java" \
@@ -26,8 +26,8 @@ javac --release 21 -d "$BUILD/classes" \
   "$ROOT/tests/java/turboheader/il2cpp/analysis/interfacecall/SsaIdentityResolverTest.java" \
   "$ROOT/tests/java/turboheader/il2cpp/analysis/interfacecall/TypeInfoSourcePolicyTest.java" \
   "$ROOT/tests/java/turboheader/il2cpp/analysis/interfacecall/InterfaceCallRejectionCountsTest.java" \
-  "$ROOT/src/main/java/turboheader/il2cpp/analysis/Il2CppHelperProofPolicy.java" \
-  "$ROOT/tests/java/turboheader/il2cpp/analysis/Il2CppHelperProofPolicyTest.java" \
+  "$ROOT/src/main/java/turboheader/il2cpp/analysis/helpers/Il2CppHelperProofPolicy.java" \
+  "$ROOT/tests/java/turboheader/il2cpp/analysis/helpers/Il2CppHelperProofPolicyTest.java" \
   "$ROOT/src/main/java/turboheader/il2cpp/types/ImportDiagnostics.java" \
   "$ROOT/tests/java/turboheader/il2cpp/types/ImportDiagnosticsTest.java" \
   "$ROOT/src/main/java/turboheader/il2cpp/types/CParserHeaderAdapter.java" \
@@ -46,13 +46,13 @@ java -cp "$BUILD/classes" turboheader.il2cpp.types.CParserHeaderAdapterTest
 java -cp "$BUILD/classes" turboheader.il2cpp.metadata.MethodAssemblyIdentityTest
 java -cp "$BUILD/classes" turboheader.il2cpp.metadata.Il2CppStringLabelsTest
 java -cp "$BUILD/classes" turboheader.il2cpp.metadata.Il2CppMethodMetadataLabelsTest
-java -cp "$BUILD/classes" turboheader.il2cpp.analysis.Il2CppHelperNamesTest
+java -cp "$BUILD/classes" turboheader.il2cpp.analysis.helpers.Il2CppHelperNamesTest
 java -cp "$BUILD/classes" turboheader.il2cpp.analysis.interfacecall.ExactSsaValueResolverTest
 java -cp "$BUILD/classes" turboheader.il2cpp.analysis.interfacecall.Il2CppInterfaceCallProofTest
 java -cp "$BUILD/classes" turboheader.il2cpp.analysis.interfacecall.SsaIdentityResolverTest
 java -cp "$BUILD/classes" turboheader.il2cpp.analysis.interfacecall.TypeInfoSourcePolicyTest
 java -cp "$BUILD/classes" turboheader.il2cpp.analysis.interfacecall.InterfaceCallRejectionCountsTest
-java -cp "$BUILD/classes" turboheader.il2cpp.analysis.Il2CppHelperProofPolicyTest
+java -cp "$BUILD/classes" turboheader.il2cpp.analysis.helpers.Il2CppHelperProofPolicyTest
 
 javac --release 21 -cp "$BUILD/classes" -d "$BUILD/classes" \
   "$ROOT/src/main/java/turboheader/il2cpp/Il2CppExportScope.java" \

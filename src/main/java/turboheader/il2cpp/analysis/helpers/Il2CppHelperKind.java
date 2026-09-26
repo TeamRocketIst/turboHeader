@@ -1,4 +1,4 @@
-package turboheader.il2cpp.analysis;
+package turboheader.il2cpp.analysis.helpers;
 
 /** IL2CPP runtime helpers whose identity can be established without address guesses. */
 public enum Il2CppHelperKind {

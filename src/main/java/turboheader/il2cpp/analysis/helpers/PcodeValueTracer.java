@@ -1,4 +1,4 @@
-package turboheader.il2cpp.analysis;
+package turboheader.il2cpp.analysis.helpers;
 
 import java.util.ArrayDeque;
 import java.util.Collections;

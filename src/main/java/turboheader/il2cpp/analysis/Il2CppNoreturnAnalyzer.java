@@ -14,6 +14,8 @@ import ghidra.program.model.listing.Function;
 import ghidra.program.model.listing.Instruction;
 import ghidra.program.model.listing.Program;
 import ghidra.util.task.TaskMonitor;
+import turboheader.il2cpp.analysis.helpers.GhidraHelperFunctionNamer;
+import turboheader.il2cpp.analysis.helpers.Il2CppHelperKind;
 import turboheader.il2cpp.project.Il2CppProgramFacts;
 
 /**
