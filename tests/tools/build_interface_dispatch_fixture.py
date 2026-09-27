@@ -22,6 +22,12 @@ SHARED_GENERIC_CALLER_ONE_ARG = 0x5A0
 SHARED_GENERIC_METHOD_INFO_ONE_ARG = 0x5C0
 SHARED_GENERIC_CALLER_THREE_ARGS = 0x600
 SHARED_GENERIC_METHOD_INFO_THREE_ARGS = 0x620
+SHARED_GENERIC_BOOL_CALLER = 0x640
+SHARED_GENERIC_BOOL_METHOD_INFO = 0x660
+SHARED_GENERIC_INT_CALLER = 0x680
+SHARED_GENERIC_INT_METHOD_INFO = 0x6A0
+SHARED_GENERIC_STRUCT_CALLER = 0x6C0
+SHARED_GENERIC_STRUCT_METHOD_INFO = 0x6E0
 NATIVE_CALL = 0x180
 CONDITION_TARGET = 0x190
 RECEIVER_TYPE = 0x500
@@ -70,7 +76,7 @@ def main():
     if len(sys.argv) != 2:
         raise SystemExit("usage: build_interface_dispatch_fixture.py OUTPUT")
 
-    data = bytearray(0x700)
+    data = bytearray(0x800)
     for offset in range(0, len(data), 4):
         struct.pack_into("<I", data, offset, 0xD503_201F)
 
@@ -184,10 +190,38 @@ def main():
                SHARED_GENERIC_BODY),
         0xD65F_03C0,
     ])
+    write_words(data, SHARED_GENERIC_BOOL_CALLER, [
+        adr(SHARED_GENERIC_BOOL_CALLER, SHARED_GENERIC_BOOL_METHOD_INFO, 8),
+        load(2, 8),
+        0x9100_73E1,
+        branch(0x9400_0000, SHARED_GENERIC_BOOL_CALLER + 0x0C,
+               SHARED_GENERIC_BODY),
+        0xD65F_03C0,
+    ])
+    write_words(data, SHARED_GENERIC_INT_CALLER, [
+        adr(SHARED_GENERIC_INT_CALLER, SHARED_GENERIC_INT_METHOD_INFO, 8),
+        load(3, 8),
+        0x9100_13E2,
+        0x5280_00E1,
+        branch(0x9400_0000, SHARED_GENERIC_INT_CALLER + 0x10,
+               SHARED_GENERIC_BODY),
+        0xD65F_03C0,
+    ])
+    write_words(data, SHARED_GENERIC_STRUCT_CALLER, [
+        adr(SHARED_GENERIC_STRUCT_CALLER, SHARED_GENERIC_STRUCT_METHOD_INFO, 8),
+        load(4, 8),
+        0x9100_63E3,
+        branch(0x9400_0000, SHARED_GENERIC_STRUCT_CALLER + 0x0C,
+               SHARED_GENERIC_BODY),
+        0xD65F_03C0,
+    ])
     write_words(data, SHARED_GENERIC_BODY, [0xD65F_03C0])
     struct.pack_into("<Q", data, SHARED_GENERIC_METHOD_INFO, 0x2700)
     struct.pack_into("<Q", data, SHARED_GENERIC_METHOD_INFO_ONE_ARG, 0x2800)
     struct.pack_into("<Q", data, SHARED_GENERIC_METHOD_INFO_THREE_ARGS, 0x2900)
+    struct.pack_into("<Q", data, SHARED_GENERIC_BOOL_METHOD_INFO, 0x2A00)
+    struct.pack_into("<Q", data, SHARED_GENERIC_INT_METHOD_INFO, 0x2B00)
+    struct.pack_into("<Q", data, SHARED_GENERIC_STRUCT_METHOD_INFO, 0x2C00)
     struct.pack_into("<Q", data, RECEIVER_TYPE, 0x2500)
     struct.pack_into("<Q", data, INTERFACE_TYPE, 0x2600)
     struct.pack_into("<Q", data, RECEIVER_TYPE_GOT, IMAGE_BASE + RECEIVER_TYPE)

@@ -8,13 +8,13 @@ final class SharedGenericCallProof {
 
     static boolean accepts(long actualTarget, long expectedTarget,
             long actualMethodInfo, long expectedMethodInfo,
-            boolean resultIsStackRelative, long resultOffset, int pointerSize) {
+            boolean resultIsStackRelative, long resultOffset, int resultAlignment) {
         if (actualTarget != expectedTarget || actualMethodInfo != expectedMethodInfo ||
-                !resultIsStackRelative || pointerSize <= 0) {
+                !resultIsStackRelative || resultAlignment <= 0) {
             return false;
         }
         return resultOffset >= -MAX_STACK_DISTANCE &&
                 resultOffset <= MAX_STACK_DISTANCE &&
-                Math.floorMod(resultOffset, pointerSize) == 0;
+                Math.floorMod(resultOffset, resultAlignment) == 0;
     }
 }

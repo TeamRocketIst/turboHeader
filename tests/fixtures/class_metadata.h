@@ -83,6 +83,12 @@ struct Cipher_Fields {
     int32_t keySize;
 };
 
+struct Fixture_Value_o {
+    int32_t index;
+    int32_t rows;
+    void *items;
+};
+
 struct Cipher_o {
     struct Cipher_c *klass;
     void *monitor;

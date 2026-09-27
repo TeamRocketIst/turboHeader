@@ -40,10 +40,25 @@ public final class Il2CppSharedGenericCallCatalogTest {
                 0x100, 0x200,
                 "void wrong_name (Fixture_Item_o** __result, const MethodInfo* method);")),
                 "wrong physical function name");
+        String valueSignature = "void shared_generic_call (" +
+                "Fixture_Item_o* __result, const MethodInfo* method);";
+        var valueCatalog = Il2CppSharedGenericCallCatalog.fromScript(data(List.of(
+                new ScriptMethodReader.ScriptSharedGenericCall(
+                        0x140, 0x240, valueSignature)))).orElseThrow();
+        var valuePrototype = SharedGenericCallSignature.parse(
+                valueCatalog.entries().getFirst().signature());
+        check(valuePrototype.hasValueResult(), "value result classification");
+        check(valuePrototype.resultPointeeType().equals("Fixture_Item_o"),
+                "value result pointee");
+
         expectFailure(List.of(new ScriptMethodReader.ScriptSharedGenericCall(
                 0x100, 0x200,
-                "void shared_generic_call (Fixture_Item_o* __result, " +
-                "const MethodInfo* method);")), "result is not an out pointer");
+                "void shared_generic_call (Fixture_Item_o __result, " +
+                "const MethodInfo* method);")), "result is not a pointer");
+        expectFailure(List.of(new ScriptMethodReader.ScriptSharedGenericCall(
+                0x100, 0x200,
+                "void shared_generic_call (void* __result, " +
+                "const MethodInfo* method);")), "void result buffer");
 
         byte[] trailing = Arrays.copyOf(encoded, encoded.length + 1);
         expectDecodeFailure(trailing, "trailing stored data");

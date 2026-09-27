@@ -13,6 +13,9 @@ public class VerifyTurboHeaderSharedGenericCallStore extends GhidraScript {
     private static final long METHOD_INFO = 0x580;
     private static final long METHOD_INFO_ONE_ARG = 0x5C0;
     private static final long METHOD_INFO_THREE_ARGS = 0x620;
+    private static final long BOOL_METHOD_INFO = 0x660;
+    private static final long INT_METHOD_INFO = 0x6A0;
+    private static final long STRUCT_METHOD_INFO = 0x6E0;
     private static final long METHOD = 0x560;
     private static final String SIGNATURE =
             "void shared_generic_call (Fixture_List_o* __this, int32_t index, " +
@@ -23,6 +26,16 @@ public class VerifyTurboHeaderSharedGenericCallStore extends GhidraScript {
     private static final String THREE_ARG_SIGNATURE =
             "void shared_generic_call (Il2CppObject* __this, System_String_o* name, " +
             "System_Object_array* args, Il2CppObject** __result, " +
+            "const MethodInfo* method);";
+    private static final String BOOL_SIGNATURE =
+            "void shared_generic_call (Il2CppObject* __this, bool* __result, " +
+            "const MethodInfo* method);";
+    private static final String INT_SIGNATURE =
+            "void shared_generic_call (Il2CppObject* __this, int32_t index, " +
+            "int32_t* __result, const MethodInfo* method);";
+    private static final String STRUCT_SIGNATURE =
+            "void shared_generic_call (Il2CppObject* __this, System_String_o* name, " +
+            "System_Object_array* args, Fixture_Value_o* __result, " +
             "const MethodInfo* method);";
 
     @Override
@@ -36,6 +49,9 @@ public class VerifyTurboHeaderSharedGenericCallStore extends GhidraScript {
         long methodInfo = Math.addExact(blockOffset, METHOD_INFO);
         long methodInfoOneArg = Math.addExact(blockOffset, METHOD_INFO_ONE_ARG);
         long methodInfoThreeArgs = Math.addExact(blockOffset, METHOD_INFO_THREE_ARGS);
+        long boolMethodInfo = Math.addExact(blockOffset, BOOL_METHOD_INFO);
+        long intMethodInfo = Math.addExact(blockOffset, INT_METHOD_INFO);
+        long structMethodInfo = Math.addExact(blockOffset, STRUCT_METHOD_INFO);
         long method = Math.addExact(blockOffset, METHOD);
         if (args.length == 1) {
             var rows = List.of(
@@ -44,7 +60,13 @@ public class VerifyTurboHeaderSharedGenericCallStore extends GhidraScript {
                     new ScriptMethodReader.ScriptSharedGenericCall(
                             methodInfoOneArg, method, ONE_ARG_SIGNATURE),
                     new ScriptMethodReader.ScriptSharedGenericCall(
-                            methodInfoThreeArgs, method, THREE_ARG_SIGNATURE));
+                            methodInfoThreeArgs, method, THREE_ARG_SIGNATURE),
+                    new ScriptMethodReader.ScriptSharedGenericCall(
+                            boolMethodInfo, method, BOOL_SIGNATURE),
+                    new ScriptMethodReader.ScriptSharedGenericCall(
+                            intMethodInfo, method, INT_SIGNATURE),
+                    new ScriptMethodReader.ScriptSharedGenericCall(
+                            structMethodInfo, method, STRUCT_SIGNATURE));
             var data = new ScriptMethodReader.ScriptData(
                     List.of(), List.of(), List.of(), List.of(), Optional.empty(),
                     Optional.empty(), Optional.of(rows));
@@ -53,13 +75,19 @@ public class VerifyTurboHeaderSharedGenericCallStore extends GhidraScript {
         }
 
         var catalog = Il2CppSharedGenericCallStore.read(currentProgram).orElseThrow();
-        require(catalog.entries().size() == 3, "shared-generic entry count");
+        require(catalog.entries().size() == 6, "shared-generic entry count");
         require(catalog.forMethodInfoAddress(methodInfo).orElseThrow()
                 .methodAddress() == method, "shared-generic lookup");
         require(catalog.forMethodInfoAddress(methodInfoOneArg).orElseThrow()
                 .methodAddress() == method, "one-argument shared-generic lookup");
         require(catalog.forMethodInfoAddress(methodInfoThreeArgs).orElseThrow()
                 .methodAddress() == method, "three-argument shared-generic lookup");
+        require(catalog.forMethodInfoAddress(boolMethodInfo).orElseThrow()
+                .methodAddress() == method, "Boolean shared-generic lookup");
+        require(catalog.forMethodInfoAddress(intMethodInfo).orElseThrow()
+                .methodAddress() == method, "integer shared-generic lookup");
+        require(catalog.forMethodInfoAddress(structMethodInfo).orElseThrow()
+                .methodAddress() == method, "structure shared-generic lookup");
         println(args.length == 1
                 ? "TurboHeader shared-generic catalogue stored"
                 : "TurboHeader shared-generic catalogue survived project reopen");

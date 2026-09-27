@@ -178,7 +178,7 @@ public final class Il2CppSharedGenericCallAnalyzer {
         boolean accepted = SharedGenericCallProof.accepts(
                 candidate.target().getOffset(), matched.method().getOffset(),
                 match.methodInfoValue(), matched.methodInfo().getOffset(),
-                stackRelative, resultOffset, program.getDefaultPointerSize());
+                stackRelative, resultOffset, matched.storage().resultAlignment());
         if (!accepted) {
             return ProofResult.rejected(RejectionReason.RESULT_BUFFER);
         }

@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import ghidra.program.model.data.AbstractIntegerDataType;
 import ghidra.program.model.data.BooleanDataType;
@@ -31,6 +32,10 @@ final class GhidraSharedGenericPrototypeResolver {
             SharedGenericCallSignature prototype) throws InvalidInputException {
         Objects.requireNonNull(program, "program");
         Objects.requireNonNull(prototype, "prototype");
+        if (resultAlignment(program, prototype).isEmpty()) {
+            throw new IllegalArgumentException(
+                    "shared-generic value result type is not imported");
+        }
         var types = new GhidraMethodImporter(program, TaskMonitor.DUMMY);
         var signature = new FunctionDefinitionDataType(
                 GhidraMethodImporter.signatureCategory(),
@@ -56,6 +61,10 @@ final class GhidraSharedGenericPrototypeResolver {
             SharedGenericCallSignature prototype) {
         Objects.requireNonNull(program, "program");
         Objects.requireNonNull(prototype, "prototype");
+        OptionalInt resultAlignment = resultAlignment(program, prototype);
+        if (resultAlignment.isEmpty()) {
+            return Optional.empty();
+        }
         var convention = program.getCompilerSpec().getDefaultCallingConvention();
         if (convention == null) {
             return Optional.empty();
@@ -89,7 +98,26 @@ final class GhidraSharedGenericPrototypeResolver {
         if (result == null || methodInfo == null) {
             return Optional.empty();
         }
-        return Optional.of(new CallStorage(result, methodInfo));
+        return Optional.of(new CallStorage(result, methodInfo,
+                resultAlignment.getAsInt()));
+    }
+
+    private static OptionalInt resultAlignment(Program program,
+            SharedGenericCallSignature prototype) {
+        if (!prototype.hasValueResult()) {
+            return OptionalInt.of(program.getDefaultPointerSize());
+        }
+        try {
+            var resolver = new GhidraMethodImporter(program, TaskMonitor.DUMMY);
+            DataType pointee = abiType(program, resolver,
+                    prototype.resultPointeeType());
+            int alignment = program.getDataTypeManager().getDataOrganization()
+                    .getAlignment(pointee);
+            return alignment > 0 ? OptionalInt.of(alignment) : OptionalInt.empty();
+        }
+        catch (IllegalArgumentException e) {
+            return OptionalInt.empty();
+        }
     }
 
     private static DataType abiType(Program program, GhidraMethodImporter resolver,
@@ -167,10 +195,13 @@ final class GhidraSharedGenericPrototypeResolver {
                 token.equals("union") || token.equals("enum");
     }
 
-    record CallStorage(Register result, Register methodInfo) {
+    record CallStorage(Register result, Register methodInfo, int resultAlignment) {
         CallStorage {
             Objects.requireNonNull(result, "result");
             Objects.requireNonNull(methodInfo, "methodInfo");
+            if (resultAlignment <= 0) {
+                throw new IllegalArgumentException("invalid result alignment");
+            }
         }
     }
 }

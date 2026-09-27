@@ -9,6 +9,7 @@ import ghidra.app.script.GhidraScript;
 import ghidra.program.model.address.Address;
 import ghidra.program.model.listing.Function;
 import ghidra.program.model.listing.FunctionSignature;
+import ghidra.program.model.data.Pointer;
 import ghidra.program.model.pcode.DataTypeSymbol;
 import ghidra.program.model.pcode.HighFunction;
 import ghidra.program.model.pcode.HighFunctionDBUtil;
@@ -25,6 +26,12 @@ public class VerifyTurboHeaderSharedGenericCall extends GhidraScript {
     private static final long METHOD_INFO = 0x580;
     private static final long METHOD_INFO_ONE_ARG = 0x5C0;
     private static final long METHOD_INFO_THREE_ARGS = 0x620;
+    private static final long BOOL_CALLER = 0x640;
+    private static final long BOOL_METHOD_INFO = 0x660;
+    private static final long INT_CALLER = 0x680;
+    private static final long INT_METHOD_INFO = 0x6A0;
+    private static final long STRUCT_CALLER = 0x6C0;
+    private static final long STRUCT_METHOD_INFO = 0x6E0;
 
     @Override
     protected void run() throws Exception {
@@ -46,43 +53,69 @@ public class VerifyTurboHeaderSharedGenericCall extends GhidraScript {
                 Math.addExact(blockOffset, CALLER_THREE_ARGS));
         Address threeArgsMethodInfo = currentProgram.getImageBase().add(
                 Math.addExact(blockOffset, METHOD_INFO_THREE_ARGS));
+        Address boolEntry = currentProgram.getImageBase().add(
+                Math.addExact(blockOffset, BOOL_CALLER));
+        Address boolMethodInfo = currentProgram.getImageBase().add(
+                Math.addExact(blockOffset, BOOL_METHOD_INFO));
+        Address intEntry = currentProgram.getImageBase().add(
+                Math.addExact(blockOffset, INT_CALLER));
+        Address intMethodInfo = currentProgram.getImageBase().add(
+                Math.addExact(blockOffset, INT_METHOD_INFO));
+        Address structEntry = currentProgram.getImageBase().add(
+                Math.addExact(blockOffset, STRUCT_CALLER));
+        Address structMethodInfo = currentProgram.getImageBase().add(
+                Math.addExact(blockOffset, STRUCT_METHOD_INFO));
         Function caller = createFixtureFunction(callerEntry, "shared-generic caller");
         Function oneArgCaller = createFixtureFunction(
                 oneArgEntry, "one-argument shared-generic caller");
         Function threeArgsCaller = createFixtureFunction(
                 threeArgsEntry, "three-argument shared-generic caller");
+        Function boolCaller = createFixtureFunction(
+                boolEntry, "Boolean shared-generic caller");
+        Function intCaller = createFixtureFunction(
+                intEntry, "integer shared-generic caller");
+        Function structCaller = createFixtureFunction(
+                structEntry, "structure shared-generic caller");
         createFixtureFunction(bodyEntry, "shared-generic body");
 
         var catalog = Il2CppSharedGenericCallStore.read(currentProgram).orElseThrow();
         long modificationNumber = currentProgram.getModificationNumber();
         var analysis = Il2CppSharedGenericCallAnalyzer.analyze(
-                currentProgram, List.of(caller, oneArgCaller, threeArgsCaller),
+                currentProgram, List.of(caller, oneArgCaller, threeArgsCaller,
+                        boolCaller, intCaller, structCaller),
                 catalog, monitor);
         require(analysis.outcome() == Il2CppSharedGenericCallAnalyzer.Outcome.COMPLETE,
                 "shared-generic analysis did not complete");
-        require(analysis.candidateFunctions() == 3 && analysis.candidateCalls() == 3 &&
-                analysis.provenCalls() == 3 && analysis.rejections().isEmpty(),
+        require(analysis.candidateFunctions() == 6 && analysis.candidateCalls() == 6 &&
+                analysis.provenCalls() == 6 && analysis.rejections().isEmpty(),
                 "shared-generic proof statistics differ: " + analysis);
         requireProof(analysis, callerEntry.add(0x10), bodyEntry, methodInfo);
         requireProof(analysis, oneArgEntry.add(0x0C), bodyEntry, oneArgMethodInfo);
         requireProof(analysis, threeArgsEntry.add(0x0C), bodyEntry,
                 threeArgsMethodInfo);
+        requireProof(analysis, boolEntry.add(0x0C), bodyEntry, boolMethodInfo);
+        requireProof(analysis, intEntry.add(0x10), bodyEntry, intMethodInfo);
+        requireProof(analysis, structEntry.add(0x0C), bodyEntry, structMethodInfo);
         require(currentProgram.getModificationNumber() == modificationNumber,
                 "shared-generic analysis changed the program");
 
         var published = Il2CppSharedGenericCallPublisher.publish(
                 currentProgram, analysis.proofs(), monitor);
-        require(published.requested() == 3 && published.added() == 3 &&
+        require(published.requested() == 6 && published.added() == 6 &&
                 published.retained() == 0, "shared-generic publication differs");
         requireOverride(caller, callerEntry.add(0x10), 4);
         requireOverride(oneArgCaller, oneArgEntry.add(0x0C), 3);
         requireOverride(threeArgsCaller, threeArgsEntry.add(0x0C), 5);
+        requireValueOverride(boolCaller, boolEntry.add(0x0C), 1, "bool");
+        requireValueOverride(intCaller, intEntry.add(0x10), 2, "int32_t");
+        requireValueOverride(structCaller, structEntry.add(0x0C), 3,
+                "Fixture_Value_o");
 
         long beforeRepeat = currentProgram.getModificationNumber();
         var repeated = Il2CppSharedGenericCallPublisher.publish(
                 currentProgram, analysis.proofs(), monitor);
-        require(repeated.requested() == 3 && repeated.added() == 0 &&
-                repeated.retained() == 3,
+        require(repeated.requested() == 6 && repeated.added() == 0 &&
+                repeated.retained() == 6,
                 "shared-generic publication is not idempotent");
         require(currentProgram.getModificationNumber() == beforeRepeat,
                 "repeated shared-generic publication changed the program");
@@ -106,6 +139,19 @@ public class VerifyTurboHeaderSharedGenericCall extends GhidraScript {
         require(signature != null && signature.getArguments().length == arguments &&
                 signature.getReturnType().getName().equals("void"),
                 "shared-generic prototype override differs at " + callsite);
+    }
+
+    private void requireValueOverride(Function function, Address callsite,
+            int resultIndex, String pointeeName) {
+        FunctionSignature signature = overrideAt(function, callsite);
+        require(signature != null && signature.getReturnType().getName().equals("void"),
+                "value-result override is missing at " + callsite);
+        var parameters = signature.getArguments();
+        require(resultIndex >= 0 && resultIndex < parameters.length &&
+                parameters[resultIndex].getDataType() instanceof Pointer pointer &&
+                pointer.getDataType() != null &&
+                pointer.getDataType().getName().equals(pointeeName),
+                "value-result type differs at " + callsite);
     }
 
     private Function createFixtureFunction(Address entry, String label) {

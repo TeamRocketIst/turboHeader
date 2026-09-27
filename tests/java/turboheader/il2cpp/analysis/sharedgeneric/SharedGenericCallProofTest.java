@@ -5,13 +5,19 @@ public final class SharedGenericCallProofTest {
         check(SharedGenericCallProof.accepts(
                 0x400, 0x400, 0x800, 0x800, true, -72, 8),
                 "exact physical call");
+        check(SharedGenericCallProof.accepts(
+                0x400, 0x400, 0x800, 0x800, true, -4, 4),
+                "32-bit result alignment");
+        check(SharedGenericCallProof.accepts(
+                0x400, 0x400, 0x800, 0x800, true, -29, 1),
+                "Boolean result alignment");
         reject(0x404, 0x400, 0x800, 0x800, true, -72, 8,
                 "wrong shared body");
         reject(0x400, 0x400, 0x808, 0x800, true, -72, 8,
                 "wrong MethodInfo slot");
         reject(0x400, 0x400, 0x800, 0x800, false, -72, 8,
                 "non-stack result");
-        reject(0x400, 0x400, 0x800, 0x800, true, -70, 8,
+        reject(0x400, 0x400, 0x800, 0x800, true, -6, 4,
                 "misaligned result");
         reject(0x400, 0x400, 0x800, 0x800, true, 2 * 1024 * 1024L, 8,
                 "unbounded stack result");
@@ -20,11 +26,11 @@ public final class SharedGenericCallProofTest {
 
     private static void reject(long actualTarget, long expectedTarget,
             long actualMethodInfo, long expectedMethodInfo,
-            boolean resultIsStackRelative, long resultOffset, int pointerSize,
+            boolean resultIsStackRelative, long resultOffset, int resultAlignment,
             String label) {
         check(!SharedGenericCallProof.accepts(actualTarget, expectedTarget,
                 actualMethodInfo, expectedMethodInfo, resultIsStackRelative,
-                resultOffset, pointerSize), label);
+                resultOffset, resultAlignment), label);
     }
 
     private static void check(boolean condition, String label) {

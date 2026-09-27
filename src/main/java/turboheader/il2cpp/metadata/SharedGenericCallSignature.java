@@ -23,7 +23,8 @@ public record SharedGenericCallSignature(String declaration, String returnType,
         }
         var result = parsed.parameters().get(parsed.parameters().size() - 2);
         var method = parsed.parameters().getLast();
-        if (!result.name().equals("__result") || pointerDepth(result.type()) < 2) {
+        if (!result.name().equals("__result") || pointerDepth(result.type()) < 1 ||
+                resultPointeeType(result.type()).equals("void")) {
             throw new IllegalArgumentException("invalid shared-generic result parameter");
         }
         if (!method.type().equals("const MethodInfo*") ||
@@ -34,12 +35,42 @@ public record SharedGenericCallSignature(String declaration, String returnType,
                 parsed.parameters());
     }
 
+    public CFunctionSignatureParser.Parameter resultParameter() {
+        return parameters.get(parameters.size() - 2);
+    }
+
+    public boolean hasValueResult() {
+        return pointerDepth(resultParameter().type()) == 1;
+    }
+
+    public String resultPointeeType() {
+        return resultPointeeType(resultParameter().type());
+    }
+
     private static int pointerDepth(String type) {
         int result = 0;
         for (int index = 0; index < type.length(); index++) {
             if (type.charAt(index) == '*') {
                 result++;
             }
+        }
+        return result;
+    }
+
+    private static String resultPointeeType(String type) {
+        int end = type.length();
+        while (end > 0 && Character.isWhitespace(type.charAt(end - 1))) {
+            end--;
+        }
+        if (end == 0 || type.charAt(end - 1) != '*') {
+            return "";
+        }
+        String result = type.substring(0, end - 1).trim();
+        if (result.startsWith("const ")) {
+            result = result.substring(6).trim();
+        }
+        if (result.startsWith("volatile ")) {
+            result = result.substring(9).trim();
         }
         return result;
     }
