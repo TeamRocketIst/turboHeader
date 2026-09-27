@@ -20,12 +20,16 @@ javac --release 21 -d "$BUILD/classes" \
   "$ROOT/src/main/java/turboheader/il2cpp/analysis/interfacecall/ExactSsaValueResolver.java" \
   "$ROOT/tests/java/turboheader/il2cpp/analysis/interfacecall/ExactSsaValueResolverTest.java" \
   "$ROOT/src/main/java/turboheader/il2cpp/analysis/ssa/SsaIdentityResolver.java" \
+  "$ROOT/src/main/java/turboheader/il2cpp/analysis/delegatecall/Il2CppDelegateCallProof.java" \
+  "$ROOT/src/main/java/turboheader/il2cpp/analysis/delegatecall/DelegateCallRejectionCounts.java" \
   "$ROOT/src/main/java/turboheader/il2cpp/analysis/delegatecall/DelegateCallPrototype.java" \
   "$ROOT/src/main/java/turboheader/il2cpp/analysis/interfacecall/TypeInfoSourcePolicy.java" \
   "$ROOT/src/main/java/turboheader/il2cpp/analysis/interfacecall/Il2CppInterfaceCallProof.java" \
   "$ROOT/src/main/java/turboheader/il2cpp/analysis/interfacecall/InterfaceCallRejectionCounts.java" \
   "$ROOT/tests/java/turboheader/il2cpp/analysis/interfacecall/Il2CppInterfaceCallProofTest.java" \
   "$ROOT/tests/java/turboheader/il2cpp/analysis/ssa/SsaIdentityResolverTest.java" \
+  "$ROOT/tests/java/turboheader/il2cpp/analysis/delegatecall/Il2CppDelegateCallProofTest.java" \
+  "$ROOT/tests/java/turboheader/il2cpp/analysis/delegatecall/DelegateCallRejectionCountsTest.java" \
   "$ROOT/tests/java/turboheader/il2cpp/analysis/delegatecall/DelegateCallPrototypeTest.java" \
   "$ROOT/tests/java/turboheader/il2cpp/analysis/interfacecall/TypeInfoSourcePolicyTest.java" \
   "$ROOT/tests/java/turboheader/il2cpp/analysis/interfacecall/InterfaceCallRejectionCountsTest.java" \
@@ -53,6 +57,8 @@ java -cp "$BUILD/classes" turboheader.il2cpp.analysis.helpers.Il2CppHelperNamesT
 java -cp "$BUILD/classes" turboheader.il2cpp.analysis.interfacecall.ExactSsaValueResolverTest
 java -cp "$BUILD/classes" turboheader.il2cpp.analysis.interfacecall.Il2CppInterfaceCallProofTest
 java -cp "$BUILD/classes" turboheader.il2cpp.analysis.ssa.SsaIdentityResolverTest
+java -cp "$BUILD/classes" turboheader.il2cpp.analysis.delegatecall.Il2CppDelegateCallProofTest
+java -cp "$BUILD/classes" turboheader.il2cpp.analysis.delegatecall.DelegateCallRejectionCountsTest
 java -cp "$BUILD/classes" turboheader.il2cpp.analysis.delegatecall.DelegateCallPrototypeTest
 java -cp "$BUILD/classes" turboheader.il2cpp.analysis.interfacecall.TypeInfoSourcePolicyTest
 java -cp "$BUILD/classes" turboheader.il2cpp.analysis.interfacecall.InterfaceCallRejectionCountsTest

@@ -106,6 +106,23 @@ public final class Il2CppExportPipeline {
                     sample.helperCallsite(), sample.indirectCallsite(),
                     sample.reason().label()));
         }
+        output.accept(String.format(Locale.ROOT,
+                "TurboHeader delegate calls: status=%s, candidates=%d, " +
+                "matched=%d/%d, proven=%d, published=%d, shape-rejected=%d, " +
+                "rejected=%s, total=%.3fs.",
+                after.delegateCalls().outcome(), after.delegateCalls().candidateFunctions(),
+                after.delegateCalls().delegateCandidates(),
+                after.delegateCalls().indirectCalls(), after.delegateCalls().provenCalls(),
+                after.publishedDelegateCalls().added(),
+                after.delegateCalls().shapeRejected(),
+                after.delegateCalls().rejections().summary(),
+                after.delegateCalls().elapsedSeconds() +
+                after.publishedDelegateCalls().elapsedSeconds()));
+        for (var sample : after.delegateCalls().rejectionSamples()) {
+            output.accept(String.format(Locale.ROOT,
+                    "TurboHeader delegate rejection: callind=%s, reason=%s.",
+                    sample.callsite(), sample.reason()));
+        }
 
         if (program.getModificationNumber() != after.stableModificationNumber()) {
             throw new IllegalStateException("program changed after the analysis barrier");

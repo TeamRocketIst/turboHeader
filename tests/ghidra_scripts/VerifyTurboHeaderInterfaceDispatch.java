@@ -20,12 +20,15 @@ import ghidra.program.model.symbol.Reference;
 import ghidra.program.model.symbol.SourceType;
 import turboheader.il2cpp.Il2CppExportPlanner;
 import turboheader.il2cpp.analysis.pipeline.Il2CppExportAnalysisService;
+import turboheader.il2cpp.analysis.delegatecall.Il2CppDelegateCallAnalyzer;
 import turboheader.il2cpp.analysis.helpers.Il2CppHelperKind;
 import turboheader.il2cpp.analysis.interfacecall.Il2CppInterfaceCallAnalyzer;
 import turboheader.il2cpp.analysis.interfacecall.Il2CppInterfaceCallPublisher;
 import turboheader.il2cpp.decompile.Il2CppFunctionPreparationService;
 import turboheader.il2cpp.exporting.Il2CppClassCatalog;
 import turboheader.il2cpp.metadata.GhidraMethodImporter;
+import turboheader.il2cpp.metadata.Il2CppDelegateSignatureCatalog;
+import turboheader.il2cpp.metadata.Il2CppDelegateSignatureStore;
 import turboheader.il2cpp.metadata.Il2CppInterfaceDispatchCatalog;
 import turboheader.il2cpp.metadata.Il2CppInterfaceDispatchStore;
 import turboheader.il2cpp.metadata.ScriptMethodReader;
@@ -120,11 +123,18 @@ public class VerifyTurboHeaderInterfaceDispatch extends GhidraScript {
                 interfaceTypeOffset, "IRunnable_TypeInfo", "IRunnable_c*", 2);
         var dispatch = new ScriptMethodReader.ScriptInterfaceDispatch(
                 4, 2, 0, targetOffset, targetSignature);
+        var delegateSignature = new ScriptMethodReader.ScriptDelegateSignature(
+                7, "System_Action_int__o*",
+                "void delegate_invoke (Il2CppMethodPointer methodCode, int32_t value, " +
+                "const MethodInfo* method);");
         var script = new ScriptMethodReader.ScriptData(
                 List.of(importedMethods.get(1)), List.of(receiverType, interfaceType),
-                List.of(), List.of(), Optional.of(List.of(dispatch)));
+                List.of(), List.of(), Optional.of(List.of(dispatch)),
+                Optional.of(List.of(delegateSignature)));
         Il2CppInterfaceDispatchStore.replace(currentProgram,
                 Il2CppInterfaceDispatchCatalog.fromScript(script));
+        Il2CppDelegateSignatureStore.replace(currentProgram,
+                Il2CppDelegateSignatureCatalog.fromScript(script));
 
         var prefilter = Il2CppInterfaceCallAnalyzer.analyze(
                 currentProgram, List.of(function, canonicalCaller, factoryCaller),
@@ -155,6 +165,16 @@ public class VerifyTurboHeaderInterfaceDispatch extends GhidraScript {
 
         var after = Il2CppExportAnalysisService.analyzeAfterPreparation(
                 currentProgram, preparation, monitor);
+        require(after.delegatePrototypes().orElseThrow().size() == 1 &&
+                after.delegatePrototypes().orElseThrow().forTypeId(7).isPresent(),
+                "delegate prototype catalogue was not loaded during export analysis");
+        require(after.delegateCalls().outcome() ==
+                Il2CppDelegateCallAnalyzer.Outcome.MISSING_LAYOUT,
+                "delegate analysis did not fail closed without imported delegate fields");
+        require(after.publishedDelegateCalls().requested() == 0 &&
+                after.publishedDelegateCalls().added() == 0 &&
+                after.publishedDelegateCalls().retained() == 0,
+                "missing delegate layout published a prototype override");
         var helpers = after.helpers();
         require(helpers.architectureCallsites() == 1 &&
                 helpers.architectureCandidates() == 1 &&

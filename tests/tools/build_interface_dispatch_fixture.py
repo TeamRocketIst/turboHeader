@@ -12,6 +12,9 @@ TARGET = 0x240
 METHOD = 0x300
 CANONICAL_CALLER = 0x400
 FACTORY_CALLER = 0x440
+DELEGATE_CALLER = 0x480
+DELEGATE_MISMATCH_CALLER = 0x4A0
+DELEGATE_TAIL_CALLER = 0x4C0
 NATIVE_CALL = 0x180
 CONDITION_TARGET = 0x190
 RECEIVER_TYPE = 0x500
@@ -43,6 +46,12 @@ def adr(address, target, register):
 
 def load(destination, base):
     return 0xF940_0000 | (base << 5) | destination
+
+
+def load_at(destination, base, offset):
+    if offset % 8 != 0 or offset < 0 or offset >= 0x8000:
+        raise ValueError("invalid 64-bit load offset")
+    return 0xF940_0000 | ((offset // 8) << 10) | (base << 5) | destination
 
 
 def write_words(data, offset, words):
@@ -116,6 +125,33 @@ def main():
     write_words(data, FACTORY_CALLER, [
         branch(0x9400_0000, FACTORY_CALLER, HELPER),
         0xD65F_03C0,
+    ])
+    write_words(data, DELEGATE_CALLER, [
+        move(8, 0),
+        load_at(10, 8, 24),
+        load_at(0, 8, 64),
+        0x5280_00E1,
+        load_at(2, 8, 40),
+        0xD63F_0140,
+        0xD65F_03C0,
+    ])
+    write_words(data, DELEGATE_MISMATCH_CALLER, [
+        move(8, 0),
+        move(9, 1),
+        load_at(10, 8, 24),
+        load_at(0, 8, 64),
+        0x5280_00E1,
+        load_at(2, 9, 40),
+        0xD63F_0140,
+        0xD65F_03C0,
+    ])
+    write_words(data, DELEGATE_TAIL_CALLER, [
+        move(8, 0),
+        load_at(10, 8, 24),
+        load_at(0, 8, 64),
+        0x5280_00E1,
+        load_at(2, 8, 40),
+        0xD61F_0140,
     ])
     struct.pack_into("<Q", data, RECEIVER_TYPE, 0x2500)
     struct.pack_into("<Q", data, INTERFACE_TYPE, 0x2600)
