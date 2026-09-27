@@ -119,6 +119,8 @@ JAVA_TOOL_OPTIONS="${JAVA_TOOL_OPTIONS:+$JAVA_TOOL_OPTIONS }-Dapplication.settin
   -postScript VerifyTurboHeaderInterfaceDispatch.java \
   -postScript VerifyTurboHeaderInterfaceDispatchStore.java write \
   -postScript VerifyTurboHeaderDelegateSignatureStore.java write \
+  -postScript VerifyTurboHeaderSharedGenericCallStore.java write \
+  -postScript VerifyTurboHeaderSharedGenericCall.java \
   -postScript VerifyTurboHeaderDelegatePrototype.java \
   -postScript VerifyTurboHeaderDelegateCall.java \
   2>&1 | tee -a "$LOG"
@@ -130,6 +132,7 @@ JAVA_TOOL_OPTIONS="${JAVA_TOOL_OPTIONS:+$JAVA_TOOL_OPTIONS }-Dapplication.settin
   -postScript VerifyTurboHeaderDelegateCallOverride.java \
   -postScript VerifyTurboHeaderInterfaceDispatchStore.java \
   -postScript VerifyTurboHeaderDelegateSignatureStore.java \
+  -postScript VerifyTurboHeaderSharedGenericCallStore.java \
   -deleteProject 2>&1 | tee -a "$LOG"
 
 grep -q 'TurboHeader real-Ghidra fixture verification passed' "$LOG"
@@ -159,6 +162,11 @@ grep -q 'TurboHeader delegate-call P-code proof verification passed' "$LOG"
 grep -q 'TurboHeader delegate-call override verification passed' "$LOG"
 grep -q 'TurboHeader delegate-call override survived project reopen' "$LOG"
 grep -q 'TurboHeader delegate-call conflict rollback verification passed' "$LOG"
+grep -q 'TurboHeader shared-generic catalogue stored' "$LOG"
+grep -q 'TurboHeader shared-generic catalogue survived project reopen' "$LOG"
+grep -q 'TurboHeader absent shared-generic catalogue cleared stored facts' "$LOG"
+grep -q 'TurboHeader shared-generic call proof verification passed' "$LOG"
+grep -q 'TurboHeader shared-generic override verification passed' "$LOG"
 grep -Eq 'TurboHeader export plan: discovered=1, selected=1, scanned=[0-9]+, matched=1, unmatched=0, ambiguous=0, assembly-resolved=0, assembly-mismatches=0, jobs=8\.' "$LOG"
 grep -Eq 'TurboHeader export complete: classes=1, functions=1, failed=0\.' "$LOG"
 grep -Eq 'TurboHeader phase timing: scan=[0-9.]+s, analysis=[0-9.]+s, prepare=[0-9.]+s, decompile=[0-9.]+s, writes=[0-9.]+s, total=[0-9.]+s\.' "$LOG"

@@ -21,6 +21,9 @@ import turboheader.il2cpp.analysis.interfacecall.Il2CppInterfaceCallPublisher;
 import turboheader.il2cpp.analysis.helpers.Il2CppExportedHelperAnalyzer;
 import turboheader.il2cpp.analysis.helpers.Il2CppRuntimeMetadataAnalyzer;
 import turboheader.il2cpp.analysis.noreturn.Il2CppNoreturnAnalyzer;
+import turboheader.il2cpp.analysis.sharedgeneric.Il2CppSharedGenericCallAnalyzer;
+import turboheader.il2cpp.analysis.sharedgeneric.Il2CppSharedGenericCallPublisher;
+import turboheader.il2cpp.metadata.Il2CppSharedGenericCallStore;
 
 public final class Il2CppExportAnalysisService {
     private static final List<String> GLOBAL_ANALYZERS = List.of(
@@ -79,15 +82,26 @@ public final class Il2CppExportAnalysisService {
         var delegateCalls = Il2CppDelegateCallAnalyzer.analyze(
                 program, functions, delegatePrototypes, monitor);
         monitor.checkCancelled();
+        var sharedGenericCatalog = Il2CppSharedGenericCallStore.read(program);
+        var sharedGenericCalls = sharedGenericCatalog.isPresent()
+                ? Il2CppSharedGenericCallAnalyzer.analyze(program, functions,
+                        sharedGenericCatalog.orElseThrow(), monitor)
+                : Il2CppSharedGenericCallAnalyzer.AnalysisStats.notSupplied(
+                        program.getLanguage().getProcessor().toString());
+        monitor.checkCancelled();
         var publishedInterfaceCalls = Il2CppInterfaceCallPublisher.publish(
                 program, interfaceCalls.proofs(), monitor);
         monitor.checkCancelled();
         var publishedDelegateCalls = Il2CppDelegateCallPublisher.publish(
                 program, delegateCalls.proofs(), monitor);
         monitor.checkCancelled();
+        var publishedSharedGenericCalls = Il2CppSharedGenericCallPublisher.publish(
+                program, sharedGenericCalls.proofs(), monitor);
+        monitor.checkCancelled();
         return new AfterPreparationResult(helpers, delegatePrototypes,
                 interfaceCalls, delegateCalls, publishedInterfaceCalls,
-                publishedDelegateCalls,
+                publishedDelegateCalls, sharedGenericCalls,
+                publishedSharedGenericCalls,
                 program.getModificationNumber(),
                 System.nanoTime() - started);
     }
@@ -139,6 +153,8 @@ public final class Il2CppExportAnalysisService {
             Il2CppDelegateCallAnalyzer.AnalysisStats delegateCalls,
             Il2CppInterfaceCallPublisher.PublicationStats publishedInterfaceCalls,
             Il2CppDelegateCallPublisher.PublicationStats publishedDelegateCalls,
+            Il2CppSharedGenericCallAnalyzer.AnalysisStats sharedGenericCalls,
+            Il2CppSharedGenericCallPublisher.PublicationStats publishedSharedGenericCalls,
             long stableModificationNumber, long elapsedNanos) {
         public AfterPreparationResult {
             Objects.requireNonNull(helpers, "helpers");
@@ -147,6 +163,9 @@ public final class Il2CppExportAnalysisService {
             Objects.requireNonNull(delegateCalls, "delegateCalls");
             Objects.requireNonNull(publishedInterfaceCalls, "publishedInterfaceCalls");
             Objects.requireNonNull(publishedDelegateCalls, "publishedDelegateCalls");
+            Objects.requireNonNull(sharedGenericCalls, "sharedGenericCalls");
+            Objects.requireNonNull(publishedSharedGenericCalls,
+                    "publishedSharedGenericCalls");
             if (stableModificationNumber < 0 || elapsedNanos < 0) {
                 throw new IllegalArgumentException("analysis statistics must not be negative");
             }

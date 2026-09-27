@@ -31,6 +31,9 @@ javac --release 21 -d "$BUILD/classes" \
   "$ROOT/tests/java/turboheader/il2cpp/analysis/delegatecall/Il2CppDelegateCallProofTest.java" \
   "$ROOT/tests/java/turboheader/il2cpp/analysis/delegatecall/DelegateCallRejectionCountsTest.java" \
   "$ROOT/tests/java/turboheader/il2cpp/analysis/delegatecall/DelegateCallPrototypeTest.java" \
+  "$ROOT/src/main/java/turboheader/il2cpp/metadata/SharedGenericCallSignature.java" \
+  "$ROOT/src/main/java/turboheader/il2cpp/analysis/sharedgeneric/SharedGenericCallProof.java" \
+  "$ROOT/tests/java/turboheader/il2cpp/analysis/sharedgeneric/SharedGenericCallProofTest.java" \
   "$ROOT/tests/java/turboheader/il2cpp/analysis/interfacecall/TypeInfoSourcePolicyTest.java" \
   "$ROOT/tests/java/turboheader/il2cpp/analysis/interfacecall/InterfaceCallRejectionCountsTest.java" \
   "$ROOT/src/main/java/turboheader/il2cpp/analysis/helpers/Il2CppHelperProofPolicy.java" \
@@ -60,6 +63,7 @@ java -cp "$BUILD/classes" turboheader.il2cpp.analysis.ssa.SsaIdentityResolverTes
 java -cp "$BUILD/classes" turboheader.il2cpp.analysis.delegatecall.Il2CppDelegateCallProofTest
 java -cp "$BUILD/classes" turboheader.il2cpp.analysis.delegatecall.DelegateCallRejectionCountsTest
 java -cp "$BUILD/classes" turboheader.il2cpp.analysis.delegatecall.DelegateCallPrototypeTest
+java -cp "$BUILD/classes" turboheader.il2cpp.analysis.sharedgeneric.SharedGenericCallProofTest
 java -cp "$BUILD/classes" turboheader.il2cpp.analysis.interfacecall.TypeInfoSourcePolicyTest
 java -cp "$BUILD/classes" turboheader.il2cpp.analysis.interfacecall.InterfaceCallRejectionCountsTest
 java -cp "$BUILD/classes" turboheader.il2cpp.analysis.helpers.Il2CppHelperProofPolicyTest
@@ -112,9 +116,12 @@ if [[ -n "${GHIDRA_INSTALL_DIR:-}" ]]; then
     "$ROOT/src/main/java/turboheader/il2cpp/metadata/Il2CppInterfaceDispatchCodec.java" \
     "$ROOT/src/main/java/turboheader/il2cpp/metadata/Il2CppDelegateSignatureCatalog.java" \
     "$ROOT/src/main/java/turboheader/il2cpp/metadata/Il2CppDelegateSignatureCodec.java" \
+    "$ROOT/src/main/java/turboheader/il2cpp/metadata/Il2CppSharedGenericCallCatalog.java" \
+    "$ROOT/src/main/java/turboheader/il2cpp/metadata/Il2CppSharedGenericCallCodec.java" \
     "$ROOT/tests/java/turboheader/il2cpp/metadata/ScriptMethodReaderTest.java" \
     "$ROOT/tests/java/turboheader/il2cpp/metadata/Il2CppInterfaceDispatchCatalogTest.java" \
-    "$ROOT/tests/java/turboheader/il2cpp/metadata/Il2CppDelegateSignatureCatalogTest.java"
+    "$ROOT/tests/java/turboheader/il2cpp/metadata/Il2CppDelegateSignatureCatalogTest.java" \
+    "$ROOT/tests/java/turboheader/il2cpp/metadata/Il2CppSharedGenericCallCatalogTest.java"
   java -cp "$GSON_JAR:$BUILD/classes" turboheader.il2cpp.HeadlessRequestReaderTest
   java -cp "$GSON_JAR:$BUILD/classes" turboheader.il2cpp.metadata.ScriptMethodReaderTest \
     ${TURBOHEADER_SCRIPT_CORPUS:+"$TURBOHEADER_SCRIPT_CORPUS"}
@@ -122,6 +129,8 @@ if [[ -n "${GHIDRA_INSTALL_DIR:-}" ]]; then
     turboheader.il2cpp.metadata.Il2CppInterfaceDispatchCatalogTest
   java -cp "$GSON_JAR:$BUILD/classes" \
     turboheader.il2cpp.metadata.Il2CppDelegateSignatureCatalogTest
+  java -cp "$GSON_JAR:$BUILD/classes" \
+    turboheader.il2cpp.metadata.Il2CppSharedGenericCallCatalogTest
 fi
 
 if [[ "${TURBOHEADER_JNI_ONLY:-0}" != "1" ]]; then

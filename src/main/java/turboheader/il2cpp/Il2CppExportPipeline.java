@@ -123,6 +123,22 @@ public final class Il2CppExportPipeline {
                     "TurboHeader delegate rejection: callind=%s, reason=%s.",
                     sample.callsite(), sample.reason()));
         }
+        output.accept(String.format(Locale.ROOT,
+                "TurboHeader shared generic calls: status=%s, functions=%d, " +
+                "candidates=%d, proven=%d, published=%d, rejected=%s, total=%.3fs.",
+                after.sharedGenericCalls().outcome(),
+                after.sharedGenericCalls().candidateFunctions(),
+                after.sharedGenericCalls().candidateCalls(),
+                after.sharedGenericCalls().provenCalls(),
+                after.publishedSharedGenericCalls().added(),
+                after.sharedGenericCalls().rejections(),
+                after.sharedGenericCalls().elapsedSeconds() +
+                after.publishedSharedGenericCalls().elapsedSeconds()));
+        for (var sample : after.sharedGenericCalls().rejectionSamples()) {
+            output.accept(String.format(Locale.ROOT,
+                    "TurboHeader shared generic rejection: call=%s, reason=%s.",
+                    sample.callsite(), sample.reason().label()));
+        }
 
         if (program.getModificationNumber() != after.stableModificationNumber()) {
             throw new IllegalStateException("program changed after the analysis barrier");
