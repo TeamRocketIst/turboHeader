@@ -16,6 +16,7 @@ import ghidra.program.model.pcode.HighFunction;
 import ghidra.program.model.pcode.PcodeOp;
 import ghidra.program.model.pcode.PcodeOpAST;
 import ghidra.program.model.pcode.Varnode;
+import turboheader.il2cpp.analysis.ssa.SsaIdentityResolver;
 import turboheader.il2cpp.metadata.Il2CppInterfaceDispatchCatalog;
 
 final class GhidraPcodeInterfaceCallResolver {

@@ -1,4 +1,4 @@
-package turboheader.il2cpp.analysis.interfacecall;
+package turboheader.il2cpp.analysis.ssa;
 
 import java.util.List;
 

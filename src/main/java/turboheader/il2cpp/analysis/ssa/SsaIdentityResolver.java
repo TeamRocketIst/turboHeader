@@ -1,4 +1,4 @@
-package turboheader.il2cpp.analysis.interfacecall;
+package turboheader.il2cpp.analysis.ssa;
 
 import java.util.Collections;
 import java.util.IdentityHashMap;
@@ -8,7 +8,8 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
-final class SsaIdentityResolver<N> {
+/** Resolves copies and unanimous SSA merges to one exact source value. */
+public final class SsaIdentityResolver<N> {
     private static final int MAX_VALUES = 128;
 
     private final ValueGraph<N> graph;
@@ -16,11 +17,11 @@ final class SsaIdentityResolver<N> {
     private final Set<N> active = Collections.newSetFromMap(new IdentityHashMap<>());
     private int visited;
 
-    SsaIdentityResolver(ValueGraph<N> graph) {
+    public SsaIdentityResolver(ValueGraph<N> graph) {
         this.graph = Objects.requireNonNull(graph, "graph");
     }
 
-    Optional<N> resolve(N node) {
+    public Optional<N> resolve(N node) {
         if (node == null) {
             return Optional.empty();
         }
@@ -75,20 +76,21 @@ final class SsaIdentityResolver<N> {
         return Optional.of(root);
     }
 
-    enum Operation {
+    public enum Operation {
         ROOT,
         COPY,
         MERGE
     }
 
-    record Value<N>(Operation operation, List<N> inputs) {
-        Value {
+    public record Value<N>(Operation operation, List<N> inputs) {
+        public Value {
             Objects.requireNonNull(operation, "operation");
             inputs = List.copyOf(inputs);
         }
     }
 
-    interface ValueGraph<N> {
+    @FunctionalInterface
+    public interface ValueGraph<N> {
         Value<N> describe(N node);
     }
 }
