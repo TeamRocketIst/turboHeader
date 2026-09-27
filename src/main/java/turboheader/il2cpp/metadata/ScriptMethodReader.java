@@ -17,6 +17,7 @@ import com.google.gson.stream.JsonToken;
 public final class ScriptMethodReader {
     private static final int MAX_INTERFACE_DISPATCH_ENTRIES = 1_000_000;
     private static final int MAX_DELEGATE_SIGNATURE_ENTRIES = 1_000_000;
+    private static final int MAX_SHARED_GENERIC_CALL_ENTRIES = 1_000_000;
     private static final int MAX_TYPE_NAME_CHARS = 4_096;
     private static final int MAX_SIGNATURE_CHARS = 65_536;
 
@@ -34,8 +35,10 @@ public final class ScriptMethodReader {
         List<ScriptString> strings = new ArrayList<>();
         List<ScriptInterfaceDispatch> interfaceDispatch = new ArrayList<>();
         List<ScriptDelegateSignature> delegateSignatures = new ArrayList<>();
+        List<ScriptSharedGenericCall> sharedGenericCalls = new ArrayList<>();
         boolean foundInterfaceDispatch = false;
         boolean foundDelegateSignatures = false;
+        boolean foundSharedGenericCalls = false;
         try (JsonReader reader = new JsonReader(Files.newBufferedReader(path, StandardCharsets.UTF_8))) {
             reader.beginObject();
             boolean foundMethods = false;
@@ -122,6 +125,22 @@ public final class ScriptMethodReader {
                         }
                         reader.endArray();
                     }
+                    case "ScriptSharedGenericCall" -> {
+                        if (foundSharedGenericCalls || reader.peek() != JsonToken.BEGIN_ARRAY) {
+                            throw new IOException(
+                                    "script.json ScriptSharedGenericCall must be one array");
+                        }
+                        foundSharedGenericCalls = true;
+                        reader.beginArray();
+                        while (reader.hasNext()) {
+                            if (sharedGenericCalls.size() == MAX_SHARED_GENERIC_CALL_ENTRIES) {
+                                throw new IOException(
+                                        "script.json has too many shared-generic call entries");
+                            }
+                            sharedGenericCalls.add(readSharedGenericCall(reader));
+                        }
+                        reader.endArray();
+                    }
                     default -> reader.skipValue();
                 }
             }
@@ -136,8 +155,12 @@ public final class ScriptMethodReader {
         Optional<List<ScriptDelegateSignature>> delegates = foundDelegateSignatures
                 ? Optional.of(List.copyOf(delegateSignatures))
                 : Optional.empty();
+        Optional<List<ScriptSharedGenericCall>> sharedGenerics = foundSharedGenericCalls
+                ? Optional.of(List.copyOf(sharedGenericCalls))
+                : Optional.empty();
         return new ScriptData(List.copyOf(methods), List.copyOf(metadata),
-                List.copyOf(metadataMethods), List.copyOf(strings), dispatch, delegates);
+                List.copyOf(metadataMethods), List.copyOf(strings), dispatch, delegates,
+                sharedGenerics);
     }
 
     private static ScriptMethod readMethod(JsonReader reader) throws IOException {
@@ -272,6 +295,33 @@ public final class ScriptMethodReader {
         return new ScriptDelegateSignature(typeId, objectType, signature);
     }
 
+    private static ScriptSharedGenericCall readSharedGenericCall(JsonReader reader)
+            throws IOException {
+        Long methodInfoAddress = null;
+        Long methodAddress = null;
+        String signature = null;
+        Set<String> fields = new HashSet<>();
+        reader.beginObject();
+        while (reader.hasNext()) {
+            String field = reader.nextName();
+            if (!fields.add(field)) {
+                throw new IOException("duplicate shared-generic call field: " + field);
+            }
+            switch (field) {
+                case "MethodInfoAddress" -> methodInfoAddress = readPositiveLong(reader, field);
+                case "MethodAddress" -> methodAddress = readPositiveLong(reader, field);
+                case "Signature" -> signature = readBoundedText(reader, field,
+                        MAX_SIGNATURE_CHARS);
+                default -> reader.skipValue();
+            }
+        }
+        reader.endObject();
+        if (methodInfoAddress == null || methodAddress == null || signature == null) {
+            throw new IOException("incomplete shared-generic call entry at " + reader.getPath());
+        }
+        return new ScriptSharedGenericCall(methodInfoAddress, methodAddress, signature);
+    }
+
     private static String readBoundedText(JsonReader reader, String field, int maxChars)
             throws IOException {
         if (reader.peek() != JsonToken.STRING) {
@@ -381,21 +431,34 @@ public final class ScriptMethodReader {
     public record ScriptDelegateSignature(int typeId, String objectType, String signature) {
     }
 
+    public record ScriptSharedGenericCall(long methodInfoAddress, long methodAddress,
+            String signature) {
+    }
+
     public record ScriptData(List<ScriptMethod> methods, List<ScriptMetadata> metadata,
             List<ScriptMetadataMethod> metadataMethods, List<ScriptString> strings,
             Optional<List<ScriptInterfaceDispatch>> interfaceDispatch,
-            Optional<List<ScriptDelegateSignature>> delegateSignatures) {
+            Optional<List<ScriptDelegateSignature>> delegateSignatures,
+            Optional<List<ScriptSharedGenericCall>> sharedGenericCalls) {
         public ScriptData(List<ScriptMethod> methods, List<ScriptMetadata> metadata,
                 List<ScriptMetadataMethod> metadataMethods, List<ScriptString> strings) {
             this(methods, metadata, metadataMethods, strings, Optional.empty(),
-                    Optional.empty());
+                    Optional.empty(), Optional.empty());
         }
 
         public ScriptData(List<ScriptMethod> methods, List<ScriptMetadata> metadata,
                 List<ScriptMetadataMethod> metadataMethods, List<ScriptString> strings,
                 Optional<List<ScriptInterfaceDispatch>> interfaceDispatch) {
             this(methods, metadata, metadataMethods, strings, interfaceDispatch,
-                    Optional.empty());
+                    Optional.empty(), Optional.empty());
+        }
+
+        public ScriptData(List<ScriptMethod> methods, List<ScriptMetadata> metadata,
+                List<ScriptMetadataMethod> metadataMethods, List<ScriptString> strings,
+                Optional<List<ScriptInterfaceDispatch>> interfaceDispatch,
+                Optional<List<ScriptDelegateSignature>> delegateSignatures) {
+            this(methods, metadata, metadataMethods, strings, interfaceDispatch,
+                    delegateSignatures, Optional.empty());
         }
     }
 }

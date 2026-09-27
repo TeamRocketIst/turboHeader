@@ -18,6 +18,8 @@ import turboheader.il2cpp.metadata.Il2CppDelegateSignatureCatalog;
 import turboheader.il2cpp.metadata.Il2CppDelegateSignatureStore;
 import turboheader.il2cpp.metadata.Il2CppInterfaceDispatchCatalog;
 import turboheader.il2cpp.metadata.Il2CppInterfaceDispatchStore;
+import turboheader.il2cpp.metadata.Il2CppSharedGenericCallCatalog;
+import turboheader.il2cpp.metadata.Il2CppSharedGenericCallStore;
 import turboheader.il2cpp.metadata.ScriptMethodReader;
 
 /** Imports script.json annotations and managed method signatures into a program. */
@@ -40,16 +42,21 @@ public final class Il2CppMetadataImportService {
         var scriptData = ScriptMethodReader.readAll(script);
         var interfaceDispatch = Il2CppInterfaceDispatchCatalog.fromScript(scriptData);
         var delegateSignatures = Il2CppDelegateSignatureCatalog.fromScript(scriptData);
+        var sharedGenericCalls = Il2CppSharedGenericCallCatalog.fromScript(scriptData);
         int interfaceDispatchEntries = interfaceDispatch
                 .map(catalog -> catalog.methodAddresses().size()).orElse(0);
         int delegateSignatureEntries = delegateSignatures
                 .map(catalog -> catalog.entries().size()).orElse(0);
+        int sharedGenericCallEntries = sharedGenericCalls
+                .map(catalog -> catalog.entries().size()).orElse(0);
         output.accept(String.format(
                 "TurboHeader script: %,d strings, %,d metadata slots, %,d method slots, " +
-                "%,d methods, %,d interface dispatch entries, %,d delegate signatures.",
+                "%,d methods, %,d interface dispatch entries, %,d delegate signatures, " +
+                "%,d shared-generic calls.",
                 scriptData.strings().size(), scriptData.metadata().size(),
                 scriptData.metadataMethods().size(), scriptData.methods().size(),
-                interfaceDispatchEntries, delegateSignatureEntries));
+                interfaceDispatchEntries, delegateSignatureEntries,
+                sharedGenericCallEntries));
 
         var stringResult = new GhidraStringImporter(program, monitor)
                 .importStrings(scriptData.strings());
@@ -155,6 +162,11 @@ public final class Il2CppMetadataImportService {
                 ? String.format("TurboHeader delegate signatures: %,d entries stored.",
                         delegateSignatureEntries)
                 : "TurboHeader delegate signatures: not supplied.");
+        Il2CppSharedGenericCallStore.replace(program, sharedGenericCalls);
+        output.accept(sharedGenericCalls.isPresent()
+                ? String.format("TurboHeader shared-generic calls: %,d entries stored.",
+                        sharedGenericCallEntries)
+                : "TurboHeader shared-generic calls: not supplied.");
     }
 
     private void reportFailures(String countPrefix, String samplePrefix,

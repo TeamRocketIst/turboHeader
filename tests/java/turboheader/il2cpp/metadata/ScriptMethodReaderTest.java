@@ -27,6 +27,8 @@ public final class ScriptMethodReaderTest {
                       {"ReceiverTypeId":4,"InterfaceTypeId":2,"InterfaceSlot":0,"MethodAddress":16,"Signature":"void A__Run (const MethodInfo* method);"}
                     ],"ScriptDelegateSignature":[
                       {"TypeId":7,"ObjectType":"System_Action_int__o*","Signature":"void delegate_invoke (Il2CppMethodPointer methodCode, int32_t value, const MethodInfo* method);"}
+                    ],"ScriptSharedGenericCall":[
+                      {"MethodInfoAddress":96,"MethodAddress":128,"Signature":"void shared_generic_call (Fixture_List_o* __this, int32_t index, Fixture_Item_o** __result, const MethodInfo* method);"}
                     ]}
                     """);
             var data = ScriptMethodReader.readAll(fixture);
@@ -61,6 +63,10 @@ public final class ScriptMethodReaderTest {
                     "delegate signature count");
             check(data.delegateSignatures().orElseThrow().get(0).typeId() == 7,
                     "delegate signature TypeId");
+            check(data.sharedGenericCalls().orElseThrow().size() == 1,
+                    "shared generic call count");
+            check(data.sharedGenericCalls().orElseThrow().get(0).methodInfoAddress() == 96,
+                    "shared generic MethodInfo address");
         }
         finally {
             Files.deleteIfExists(fixture);
@@ -80,6 +86,8 @@ public final class ScriptMethodReaderTest {
                 "duplicate interface dispatch table");
         expectFailure("{\"ScriptMethod\":[],\"ScriptDelegateSignature\":[],\"ScriptDelegateSignature\":[]}",
                 "duplicate delegate signature table");
+        expectFailure("{\"ScriptMethod\":[],\"ScriptSharedGenericCall\":[],\"ScriptSharedGenericCall\":[]}",
+                "duplicate shared generic call table");
         expectFailure("{\"ScriptMethod\":[],\"ScriptInterfaceDispatch\":[{" +
                 "\"ReceiverTypeId\":1,\"InterfaceTypeId\":2,\"InterfaceSlot\":-1," +
                 "\"MethodAddress\":16,\"Signature\":\"void A__Run ();\"}]}",
@@ -101,6 +109,14 @@ public final class ScriptMethodReaderTest {
                 "\"TypeId\":1,\"ObjectType\":\"Action\\u0001_o*\"," +
                 "\"Signature\":\"void delegate_invoke ();\"}]}",
                 "delegate type control character");
+        expectFailure("{\"ScriptMethod\":[],\"ScriptSharedGenericCall\":[{" +
+                "\"MethodInfoAddress\":0,\"MethodAddress\":32," +
+                "\"Signature\":\"void shared_generic_call ();\"}]}",
+                "zero shared generic MethodInfo address");
+        expectFailure("{\"ScriptMethod\":[],\"ScriptSharedGenericCall\":[{" +
+                "\"MethodInfoAddress\":16,\"MethodAddress\":32,\"MethodAddress\":48," +
+                "\"Signature\":\"void shared_generic_call ();\"}]}",
+                "duplicate shared generic field");
 
         if (args.length == 1) {
             var methods = ScriptMethodReader.read(Path.of(args[0]));
