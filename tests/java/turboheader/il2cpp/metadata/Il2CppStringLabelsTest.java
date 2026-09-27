@@ -2,8 +2,8 @@ package turboheader.il2cpp.metadata;
 
 public final class Il2CppStringLabelsTest {
     public static void main(String[] args) {
-        check(Il2CppStringLabels.label(0x2ef11f8, "Attempt ")
-                .equals("PTR_str_Attempt\\x20_02ef11f8"), "readable label");
+        check(Il2CppStringLabels.label(0x01111111, "Sample value ")
+                .equals("PTR_str_Sample\\x20value\\x20_01111111"), "readable label");
         check(Il2CppStringLabels.label(1, "\n\té").equals(
                 "PTR_str_\\x0a\\x09\\xe9_00000001"), "escaped label");
         check(Il2CppStringLabels.label(2, "a  / b---c").equals(

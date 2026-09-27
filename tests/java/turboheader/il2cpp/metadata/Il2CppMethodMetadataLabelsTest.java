@@ -2,12 +2,12 @@ package turboheader.il2cpp.metadata;
 
 public final class Il2CppMethodMetadataLabelsTest {
     public static void main(String[] args) {
-        String managed = "Method$List<JavelinThrowGame.DustParticle>.get_Item()";
-        check(Il2CppMethodMetadataLabels.target(0x2eddc30, managed).equals(
-                "Method_Method$List_JavelinThrowGame_DustParticle_get_Item_02eddc30"),
+        String managed = "Method$List<Fixture.SampleItem>.get_Item()";
+        check(Il2CppMethodMetadataLabels.target(0x01234567, managed).equals(
+                "Method_Method$List_Fixture_SampleItem_get_Item_01234567"),
                 "target label");
-        check(Il2CppMethodMetadataLabels.pointer(0x2e59058, managed).equals(
-                "PTR_Method_Method$List_JavelinThrowGame_DustParticle_get_Item_02e59058"),
+        check(Il2CppMethodMetadataLabels.pointer(0x07654321, managed).equals(
+                "PTR_Method_Method$List_Fixture_SampleItem_get_Item_07654321"),
                 "pointer label");
         check(Il2CppMethodMetadataLabels.comment(managed).equals(
                 "IL2CPP method metadata: " + managed), "comment");
