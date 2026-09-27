@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Optional;
 
 import ghidra.app.script.GhidraScript;
+import turboheader.il2cpp.analysis.delegatecall.Il2CppDelegatePrototypeCatalog;
 import turboheader.il2cpp.metadata.Il2CppDelegateSignatureCatalog;
 import turboheader.il2cpp.metadata.Il2CppDelegateSignatureStore;
 import turboheader.il2cpp.metadata.ScriptMethodReader;
@@ -27,11 +28,19 @@ public class VerifyTurboHeaderDelegateSignatureStore extends GhidraScript {
         }
 
         var catalog = Il2CppDelegateSignatureStore.read(currentProgram).orElseThrow();
-        require(catalog.entries().size() == 1, "entry count");
+        require(catalog.entries().size() == 2, "entry count");
         require(catalog.forTypeId(7).orElseThrow().objectType().equals(OBJECT_TYPE),
                 "TypeId lookup");
+        require(catalog.forTypeId(9).orElseThrow().objectType().equals(OBJECT_TYPE),
+                "alias TypeId lookup");
         require(catalog.forObjectType(OBJECT_TYPE).orElseThrow().equals(SIGNATURE),
                 "object type lookup");
+        var prototypes = Il2CppDelegatePrototypeCatalog.read(currentProgram).orElseThrow();
+        require(prototypes.size() == 2, "prototype alias count");
+        require(prototypes.forTypeId(7).isPresent() && prototypes.forTypeId(9).isPresent(),
+                "prototype TypeId aliases");
+        require(prototypes.forObjectType(OBJECT_TYPE).orElseThrow().signature()
+                .equals(SIGNATURE), "prototype object type lookup");
         println(args.length == 1
                 ? "TurboHeader delegate-signature catalogue stored"
                 : "TurboHeader delegate-signature catalogue survived project reopen");
@@ -44,10 +53,12 @@ public class VerifyTurboHeaderDelegateSignatureStore extends GhidraScript {
     }
 
     private static ScriptMethodReader.ScriptData fixture() {
-        var signature = new ScriptMethodReader.ScriptDelegateSignature(
+        var first = new ScriptMethodReader.ScriptDelegateSignature(
                 7, OBJECT_TYPE, SIGNATURE);
+        var alias = new ScriptMethodReader.ScriptDelegateSignature(
+                9, OBJECT_TYPE, SIGNATURE);
         return new ScriptMethodReader.ScriptData(List.of(), List.of(), List.of(), List.of(),
-                Optional.empty(), Optional.of(List.of(signature)));
+                Optional.empty(), Optional.of(List.of(first, alias)));
     }
 
     private static void require(boolean condition, String label) {

@@ -254,6 +254,11 @@ public final class GhidraMethodImporter {
             return exact;
         }
 
+        if (name.equals("Il2CppMethodPointer")) {
+            DataType pointer = dtm.getPointer(VoidDataType.dataType, pointerSize);
+            return createAlias(name, pointer);
+        }
+
         DataType primitive = switch (name.toLowerCase(Locale.ROOT)) {
             case "void" -> VoidDataType.dataType;
             case "bool", "_bool" -> BooleanDataType.dataType;

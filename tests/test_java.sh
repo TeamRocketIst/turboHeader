@@ -13,17 +13,20 @@ javac --release 21 -d "$BUILD/classes" \
   "$ROOT/tests/java/turboheader/il2cpp/metadata/Il2CppStringLabelsTest.java" \
   "$ROOT/src/main/java/turboheader/il2cpp/metadata/Il2CppMethodMetadataLabels.java" \
   "$ROOT/tests/java/turboheader/il2cpp/metadata/Il2CppMethodMetadataLabelsTest.java" \
+  "$ROOT/src/main/java/turboheader/il2cpp/types/CFunctionSignatureParser.java" \
   "$ROOT/src/main/java/turboheader/il2cpp/analysis/helpers/Il2CppHelperKind.java" \
   "$ROOT/src/main/java/turboheader/il2cpp/analysis/helpers/Il2CppHelperNames.java" \
   "$ROOT/tests/java/turboheader/il2cpp/analysis/helpers/Il2CppHelperNamesTest.java" \
   "$ROOT/src/main/java/turboheader/il2cpp/analysis/interfacecall/ExactSsaValueResolver.java" \
   "$ROOT/tests/java/turboheader/il2cpp/analysis/interfacecall/ExactSsaValueResolverTest.java" \
   "$ROOT/src/main/java/turboheader/il2cpp/analysis/ssa/SsaIdentityResolver.java" \
+  "$ROOT/src/main/java/turboheader/il2cpp/analysis/delegatecall/DelegateCallPrototype.java" \
   "$ROOT/src/main/java/turboheader/il2cpp/analysis/interfacecall/TypeInfoSourcePolicy.java" \
   "$ROOT/src/main/java/turboheader/il2cpp/analysis/interfacecall/Il2CppInterfaceCallProof.java" \
   "$ROOT/src/main/java/turboheader/il2cpp/analysis/interfacecall/InterfaceCallRejectionCounts.java" \
   "$ROOT/tests/java/turboheader/il2cpp/analysis/interfacecall/Il2CppInterfaceCallProofTest.java" \
   "$ROOT/tests/java/turboheader/il2cpp/analysis/ssa/SsaIdentityResolverTest.java" \
+  "$ROOT/tests/java/turboheader/il2cpp/analysis/delegatecall/DelegateCallPrototypeTest.java" \
   "$ROOT/tests/java/turboheader/il2cpp/analysis/interfacecall/TypeInfoSourcePolicyTest.java" \
   "$ROOT/tests/java/turboheader/il2cpp/analysis/interfacecall/InterfaceCallRejectionCountsTest.java" \
   "$ROOT/src/main/java/turboheader/il2cpp/analysis/helpers/Il2CppHelperProofPolicy.java" \
@@ -50,6 +53,7 @@ java -cp "$BUILD/classes" turboheader.il2cpp.analysis.helpers.Il2CppHelperNamesT
 java -cp "$BUILD/classes" turboheader.il2cpp.analysis.interfacecall.ExactSsaValueResolverTest
 java -cp "$BUILD/classes" turboheader.il2cpp.analysis.interfacecall.Il2CppInterfaceCallProofTest
 java -cp "$BUILD/classes" turboheader.il2cpp.analysis.ssa.SsaIdentityResolverTest
+java -cp "$BUILD/classes" turboheader.il2cpp.analysis.delegatecall.DelegateCallPrototypeTest
 java -cp "$BUILD/classes" turboheader.il2cpp.analysis.interfacecall.TypeInfoSourcePolicyTest
 java -cp "$BUILD/classes" turboheader.il2cpp.analysis.interfacecall.InterfaceCallRejectionCountsTest
 java -cp "$BUILD/classes" turboheader.il2cpp.analysis.helpers.Il2CppHelperProofPolicyTest
@@ -69,8 +73,7 @@ java -cp "$BUILD/classes" turboheader.il2cpp.exporting.Il2CppClassCatalogTest
 java -cp "$BUILD/classes" turboheader.il2cpp.decompile.Il2CppFunctionMatcherTest
 java -cp "$BUILD/classes" turboheader.il2cpp.exporting.Il2CppOutputPathTest
 
-javac --release 21 -d "$BUILD/classes" \
-  "$ROOT/src/main/java/turboheader/il2cpp/types/CFunctionSignatureParser.java" \
+javac --release 21 -cp "$BUILD/classes" -d "$BUILD/classes" \
   "$ROOT/tests/java/turboheader/il2cpp/types/CFunctionSignatureParserTest.java"
 java -cp "$BUILD/classes" turboheader.il2cpp.types.CFunctionSignatureParserTest
 
