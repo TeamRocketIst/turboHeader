@@ -31,7 +31,7 @@ public record DelegateCallPrototype(int typeId, String objectType, String signat
                 !first.name().equals("methodCode")) {
             throw new IllegalArgumentException("invalid delegate method-code parameter");
         }
-        if (!last.type().equals("const MethodInfo*") || !last.name().equals("method")) {
+        if (!last.type().equals("const MethodInfo*")) {
             throw new IllegalArgumentException("invalid delegate MethodInfo parameter");
         }
         return new DelegateCallPrototype(typeId, objectType, signature,
