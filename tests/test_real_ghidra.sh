@@ -117,6 +117,7 @@ JAVA_TOOL_OPTIONS="${JAVA_TOOL_OPTIONS:+$JAVA_TOOL_OPTIONS }-Dapplication.settin
   "$JAVA_ROOT/tests/fixtures/class_metadata.h" \
   "$JAVA_ROOT/tests/fixtures/class_metadata_offsets.json" - require-external-offsets \
   -postScript VerifyTurboHeaderInterfaceDispatch.java \
+  -postScript VerifyTurboHeaderReferenceGenericCallStore.java write \
   -postScript VerifyTurboHeaderInterfaceDispatchStore.java write \
   -postScript VerifyTurboHeaderDelegateSignatureStore.java write \
   -postScript VerifyTurboHeaderSharedGenericCallStore.java write \
@@ -133,6 +134,7 @@ JAVA_TOOL_OPTIONS="${JAVA_TOOL_OPTIONS:+$JAVA_TOOL_OPTIONS }-Dapplication.settin
   -postScript VerifyTurboHeaderDelegateCallOverride.java \
   -postScript VerifyTurboHeaderInterfaceDispatchStore.java \
   -postScript VerifyTurboHeaderDelegateSignatureStore.java \
+  -postScript VerifyTurboHeaderReferenceGenericCallStore.java \
   -postScript VerifyTurboHeaderSharedGenericCallStore.java \
   -deleteProject 2>&1 | tee -a "$LOG"
 
@@ -166,6 +168,9 @@ grep -q 'TurboHeader delegate-call conflict rollback verification passed' "$LOG"
 grep -q 'TurboHeader shared-generic catalogue stored' "$LOG"
 grep -q 'TurboHeader shared-generic catalogue survived project reopen' "$LOG"
 grep -q 'TurboHeader absent shared-generic catalogue cleared stored facts' "$LOG"
+grep -q 'TurboHeader reference-generic catalogue stored' "$LOG"
+grep -q 'TurboHeader reference-generic catalogue survived project reopen' "$LOG"
+grep -q 'TurboHeader reference-generic catalogue rejection and clearing verified' "$LOG"
 grep -q 'TurboHeader shared-generic call proof verification passed' "$LOG"
 grep -q 'TurboHeader shared-generic override verification passed' "$LOG"
 grep -q 'TurboHeader analysis dependency verification passed' "$LOG"

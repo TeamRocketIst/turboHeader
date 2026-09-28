@@ -36,9 +36,11 @@ public final class ScriptMethodReader {
         List<ScriptInterfaceDispatch> interfaceDispatch = new ArrayList<>();
         List<ScriptDelegateSignature> delegateSignatures = new ArrayList<>();
         List<ScriptSharedGenericCall> sharedGenericCalls = new ArrayList<>();
+        List<Il2CppReferenceGenericCallCatalog.Entry> referenceGenericCalls = new ArrayList<>();
         boolean foundInterfaceDispatch = false;
         boolean foundDelegateSignatures = false;
         boolean foundSharedGenericCalls = false;
+        boolean foundReferenceGenericCalls = false;
         try (JsonReader reader = new JsonReader(Files.newBufferedReader(path, StandardCharsets.UTF_8))) {
             reader.beginObject();
             boolean foundMethods = false;
@@ -141,6 +143,27 @@ public final class ScriptMethodReader {
                         }
                         reader.endArray();
                     }
+                    case "ScriptReferenceGenericCall" -> {
+                        if (foundReferenceGenericCalls || reader.peek() != JsonToken.BEGIN_ARRAY) {
+                            throw new IOException("script.json ScriptReferenceGenericCall must be one array");
+                        }
+                        foundReferenceGenericCalls = true;
+                        long size = Il2CppReferenceGenericCallCatalog.HEADER_BYTES;
+                        reader.beginArray();
+                        while (reader.hasNext()) {
+                            if (referenceGenericCalls.size() == Il2CppReferenceGenericCallCatalog.MAX_ENTRIES) {
+                                throw new IOException("script.json has too many reference-generic entries");
+                            }
+                            var entry = readReferenceGenericCall(reader);
+                            size += Il2CppReferenceGenericCallCatalog.ENTRY_HEADER_BYTES +
+                                    (long) Il2CppReferenceGenericCallCatalog.signatureBytes(entry.signature()).length;
+                            if (size > Il2CppReferenceGenericCallCatalog.MAX_CATALOGUE_BYTES) {
+                                throw new IOException("script.json reference-generic catalogue is too large");
+                            }
+                            referenceGenericCalls.add(entry);
+                        }
+                        reader.endArray();
+                    }
                     default -> reader.skipValue();
                 }
             }
@@ -158,9 +181,11 @@ public final class ScriptMethodReader {
         Optional<List<ScriptSharedGenericCall>> sharedGenerics = foundSharedGenericCalls
                 ? Optional.of(List.copyOf(sharedGenericCalls))
                 : Optional.empty();
+        Optional<List<Il2CppReferenceGenericCallCatalog.Entry>> referenceGenerics = foundReferenceGenericCalls
+                ? Optional.of(List.copyOf(referenceGenericCalls)) : Optional.empty();
         return new ScriptData(List.copyOf(methods), List.copyOf(metadata),
                 List.copyOf(metadataMethods), List.copyOf(strings), dispatch, delegates,
-                sharedGenerics);
+                sharedGenerics, referenceGenerics);
     }
 
     private static ScriptMethod readMethod(JsonReader reader) throws IOException {
@@ -322,6 +347,65 @@ public final class ScriptMethodReader {
         return new ScriptSharedGenericCall(methodInfoAddress, methodAddress, signature);
     }
 
+    private static Il2CppReferenceGenericCallCatalog.Entry readReferenceGenericCall(JsonReader reader)
+            throws IOException {
+        if (reader.peek() != JsonToken.BEGIN_OBJECT) {
+            throw new IOException("reference-generic entry must be an object");
+        }
+        Long slot = null;
+        Integer spec = null;
+        Long target = null;
+        String signature = null;
+        Set<String> fields = new HashSet<>();
+        reader.beginObject();
+        while (reader.hasNext()) {
+            String field = reader.nextName();
+            if (!fields.add(field) || fields.size() > 32) {
+                throw new IOException("duplicate or excessive reference-generic fields");
+            }
+            switch (field) {
+                case "MethodInfoAddress" -> slot = readExactInteger(reader, field, 1, Long.MAX_VALUE);
+                case "MethodSpecIndex" -> spec = (int) readExactInteger(reader, field, 0,
+                        Il2CppReferenceGenericCallCatalog.MAX_METHOD_SPEC_INDEX);
+                case "MethodAddress" -> target = readExactInteger(reader, field, 1, Long.MAX_VALUE);
+                case "Signature" -> signature = readBoundedText(reader, field,
+                        Il2CppReferenceGenericCallCatalog.MAX_SIGNATURE_CHARS);
+                default -> reader.skipValue();
+            }
+        }
+        reader.endObject();
+        if (slot == null || spec == null || target == null || signature == null) {
+            throw new IOException("incomplete reference-generic entry at " + reader.getPath());
+        }
+        return new Il2CppReferenceGenericCallCatalog.Entry(slot, spec, target, signature);
+    }
+
+    private static long readExactInteger(JsonReader reader, String field, long min, long max)
+            throws IOException {
+        if (reader.peek() != JsonToken.NUMBER) {
+            throw new IOException(field + " must be an integer");
+        }
+        String text = reader.nextString();
+        if (text.isEmpty() || text.length() > 19) {
+            throw new IOException("invalid " + field);
+        }
+        for (int index = 0; index < text.length(); index++) {
+            if (text.charAt(index) < '0' || text.charAt(index) > '9') {
+                throw new IOException(field + " must be an unsigned decimal integer");
+            }
+        }
+        try {
+            long value = Long.parseLong(text);
+            if (value < min || value > max) {
+                throw new IOException(field + " is out of range");
+            }
+            return value;
+        }
+        catch (NumberFormatException e) {
+            throw new IOException(field + " is out of range", e);
+        }
+    }
+
     private static String readBoundedText(JsonReader reader, String field, int maxChars)
             throws IOException {
         if (reader.peek() != JsonToken.STRING) {
@@ -439,7 +523,17 @@ public final class ScriptMethodReader {
             List<ScriptMetadataMethod> metadataMethods, List<ScriptString> strings,
             Optional<List<ScriptInterfaceDispatch>> interfaceDispatch,
             Optional<List<ScriptDelegateSignature>> delegateSignatures,
-            Optional<List<ScriptSharedGenericCall>> sharedGenericCalls) {
+            Optional<List<ScriptSharedGenericCall>> sharedGenericCalls,
+            Optional<List<Il2CppReferenceGenericCallCatalog.Entry>> referenceGenericCalls) {
+        public ScriptData(List<ScriptMethod> methods, List<ScriptMetadata> metadata,
+                List<ScriptMetadataMethod> metadataMethods, List<ScriptString> strings,
+                Optional<List<ScriptInterfaceDispatch>> interfaceDispatch,
+                Optional<List<ScriptDelegateSignature>> delegateSignatures,
+                Optional<List<ScriptSharedGenericCall>> sharedGenericCalls) {
+            this(methods, metadata, metadataMethods, strings, interfaceDispatch,
+                    delegateSignatures, sharedGenericCalls, Optional.empty());
+        }
+
         public ScriptData(List<ScriptMethod> methods, List<ScriptMetadata> metadata,
                 List<ScriptMetadataMethod> metadataMethods, List<ScriptString> strings) {
             this(methods, metadata, metadataMethods, strings, Optional.empty(),

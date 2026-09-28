@@ -118,6 +118,10 @@ if [[ -n "${GHIDRA_INSTALL_DIR:-}" ]]; then
     "$ROOT/src/main/java/turboheader/il2cpp/metadata/Il2CppDelegateSignatureCodec.java" \
     "$ROOT/src/main/java/turboheader/il2cpp/metadata/Il2CppSharedGenericCallCatalog.java" \
     "$ROOT/src/main/java/turboheader/il2cpp/metadata/Il2CppSharedGenericCallCodec.java" \
+    "$ROOT/src/main/java/turboheader/il2cpp/metadata/ReferenceGenericCallSignature.java" \
+    "$ROOT/src/main/java/turboheader/il2cpp/metadata/Il2CppReferenceGenericCallCatalog.java" \
+    "$ROOT/src/main/java/turboheader/il2cpp/metadata/Il2CppReferenceGenericCallCodec.java" \
+    "$ROOT/tests/java/turboheader/il2cpp/metadata/Il2CppReferenceGenericCallCatalogTest.java" \
     "$ROOT/tests/java/turboheader/il2cpp/metadata/ScriptMethodReaderTest.java" \
     "$ROOT/tests/java/turboheader/il2cpp/metadata/Il2CppInterfaceDispatchCatalogTest.java" \
     "$ROOT/tests/java/turboheader/il2cpp/metadata/Il2CppDelegateSignatureCatalogTest.java" \
@@ -131,6 +135,8 @@ if [[ -n "${GHIDRA_INSTALL_DIR:-}" ]]; then
     turboheader.il2cpp.metadata.Il2CppDelegateSignatureCatalogTest
   java -cp "$GSON_JAR:$BUILD/classes" \
     turboheader.il2cpp.metadata.Il2CppSharedGenericCallCatalogTest
+  java -cp "$GSON_JAR:$BUILD/classes" \
+    turboheader.il2cpp.metadata.Il2CppReferenceGenericCallCatalogTest
 fi
 
 if [[ "${TURBOHEADER_JNI_ONLY:-0}" != "1" ]]; then

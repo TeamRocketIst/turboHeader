@@ -18,6 +18,8 @@ import turboheader.il2cpp.metadata.Il2CppDelegateSignatureCatalog;
 import turboheader.il2cpp.metadata.Il2CppDelegateSignatureStore;
 import turboheader.il2cpp.metadata.Il2CppInterfaceDispatchCatalog;
 import turboheader.il2cpp.metadata.Il2CppInterfaceDispatchStore;
+import turboheader.il2cpp.metadata.Il2CppReferenceGenericCallCatalog;
+import turboheader.il2cpp.metadata.Il2CppReferenceGenericCallStore;
 import turboheader.il2cpp.metadata.Il2CppSharedGenericCallCatalog;
 import turboheader.il2cpp.metadata.Il2CppSharedGenericCallStore;
 import turboheader.il2cpp.metadata.ScriptMethodReader;
@@ -43,6 +45,7 @@ public final class Il2CppMetadataImportService {
         var interfaceDispatch = Il2CppInterfaceDispatchCatalog.fromScript(scriptData);
         var delegateSignatures = Il2CppDelegateSignatureCatalog.fromScript(scriptData);
         var sharedGenericCalls = Il2CppSharedGenericCallCatalog.fromScript(scriptData);
+        var referenceGenericCalls = Il2CppReferenceGenericCallCatalog.fromScript(scriptData);
         int interfaceDispatchEntries = interfaceDispatch
                 .map(catalog -> catalog.methodAddresses().size()).orElse(0);
         int delegateSignatureEntries = delegateSignatures
@@ -167,6 +170,12 @@ public final class Il2CppMetadataImportService {
                 ? String.format("TurboHeader shared-generic calls: %,d entries stored.",
                         sharedGenericCallEntries)
                 : "TurboHeader shared-generic calls: not supplied.");
+        monitor.checkCancelled();
+        Il2CppReferenceGenericCallStore.replace(program, referenceGenericCalls);
+        output.accept(referenceGenericCalls.isPresent()
+                ? String.format("TurboHeader reference-generic calls: %,d entries stored.",
+                        referenceGenericCalls.orElseThrow().entries().size())
+                : "TurboHeader reference-generic calls: not supplied.");
     }
 
     private void reportFailures(String countPrefix, String samplePrefix,
