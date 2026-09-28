@@ -79,9 +79,6 @@ public final class Il2CppExportAnalysisService {
         var interfaceCalls = Il2CppInterfaceCallAnalyzer.analyze(
                 program, functions, helpers.anchors(), monitor);
         monitor.checkCancelled();
-        var delegateCalls = Il2CppDelegateCallAnalyzer.analyze(
-                program, functions, delegatePrototypes, monitor);
-        monitor.checkCancelled();
         var sharedGenericCatalog = Il2CppSharedGenericCallStore.read(program);
         var sharedGenericCalls = sharedGenericCatalog.isPresent()
                 ? Il2CppSharedGenericCallAnalyzer.analyze(program, functions,
@@ -89,14 +86,18 @@ public final class Il2CppExportAnalysisService {
                 : Il2CppSharedGenericCallAnalyzer.AnalysisStats.notSupplied(
                         program.getLanguage().getProcessor().toString());
         monitor.checkCancelled();
+        // Delegate receivers can come from shared-generic result buffers.
+        var publishedSharedGenericCalls = Il2CppSharedGenericCallPublisher.publish(
+                program, sharedGenericCalls.proofs(), monitor);
+        monitor.checkCancelled();
+        var delegateCalls = Il2CppDelegateCallAnalyzer.analyze(
+                program, functions, delegatePrototypes, monitor);
+        monitor.checkCancelled();
         var publishedInterfaceCalls = Il2CppInterfaceCallPublisher.publish(
                 program, interfaceCalls.proofs(), monitor);
         monitor.checkCancelled();
         var publishedDelegateCalls = Il2CppDelegateCallPublisher.publish(
                 program, delegateCalls.proofs(), monitor);
-        monitor.checkCancelled();
-        var publishedSharedGenericCalls = Il2CppSharedGenericCallPublisher.publish(
-                program, sharedGenericCalls.proofs(), monitor);
         monitor.checkCancelled();
         return new AfterPreparationResult(helpers, delegatePrototypes,
                 interfaceCalls, delegateCalls, publishedInterfaceCalls,
