@@ -125,7 +125,30 @@ public final class Il2CppClassCatalog {
                 names.add(namespaceName + "." + className);
                 names.add(namespaceName.replace('.', '_') + "_" + className);
             }
+            String[] components = withoutExtension.split("/");
+            for (int index = 0; index < components.length; index++) {
+                components[index] = withoutPathHash(components[index]);
+            }
+            names.add(components[components.length - 1]);
+            names.add(String.join("/", components));
+            names.add(String.join(".", components));
+            names.add(String.join("_", components));
             return Collections.unmodifiableSet(names);
+        }
+
+        private static String withoutPathHash(String component) {
+            // Cpp2IL appends twelve lowercase SHA-256 digits to changed path components.
+            int suffix = component.length() - 14;
+            if (suffix <= 0 || !component.startsWith("__", suffix)) {
+                return component;
+            }
+            for (int index = suffix + 2; index < component.length(); index++) {
+                char digit = component.charAt(index);
+                if (!(digit >= '0' && digit <= '9' || digit >= 'a' && digit <= 'f')) {
+                    return component;
+                }
+            }
+            return component.substring(0, suffix);
         }
 
         private static String namespaceOf(String relativeSource) {

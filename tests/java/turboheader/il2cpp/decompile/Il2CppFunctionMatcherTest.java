@@ -21,6 +21,11 @@ public final class Il2CppFunctionMatcherTest {
         caseInsensitiveFallbackPreservesCompatibility();
         caseInsensitiveFallbackRemainsAmbiguous();
         functionsAreOrderedByUnsignedAddress();
+        matchesHashedNamespaceAndClass();
+        keepsHashedPathCollisionsAmbiguous();
+        hashAliasesRespectAssemblyIdentity();
+        retainsLiteralHashNames();
+        rejectsMalformedHashSuffixes();
         System.out.println("IL2CPP function matcher tests passed");
     }
 
@@ -135,6 +140,55 @@ public final class Il2CppFunctionMatcherTest {
                 "function address order");
         check(result.scannedFunctions() == 2, "scanned count");
         check(result.matchedFunctions() == 2, "matched count");
+    }
+
+    private static void matchesHashedNamespaceAndClass() {
+        var entry = entry("Sample.Game", "_Generated___012345abcdef/Area/Box_1__abcdef012345.cs");
+        var function = function(80, "Generated_Area_Box_1__Read");
+        var result = Il2CppFunctionMatcher.match(List.of(entry), List.of(function));
+        check(result.functionsByClass().get(entry).equals(List.of(function)),
+                "hashed namespace and class matched");
+    }
+
+    private static void keepsHashedPathCollisionsAmbiguous() {
+        var first = entry("Sample.Game", "Area__012345abcdef/Actor.cs");
+        var second = entry("Sample.Game", "Area__abcdef012345/Actor.cs");
+        var literal = entry("Sample.Game", "Area/Actor.cs");
+        var result = Il2CppFunctionMatcher.match(List.of(first, second, literal),
+                List.of(function(84, "Area_Actor__Run")));
+        check(result.matchedFunctions() == 0, "colliding aliases must not export a function");
+        check(result.ambiguities().size() == 1, "colliding aliases reported");
+        check(result.ambiguities().get(0).classes().size() == 3,
+                "literal candidate retained in collision");
+    }
+
+    private static void hashAliasesRespectAssemblyIdentity() {
+        var first = entry("Sample.One", "Area__012345abcdef/Actor.cs");
+        var second = entry("Sample.Two", "Area__abcdef012345/Actor.cs");
+        var function = function(88, "Area_Actor__Run",
+                MethodAssemblyIdentity.write(null, "Sample.Two"));
+        var result = Il2CppFunctionMatcher.match(List.of(first, second), List.of(function));
+        check(result.functionsByClass().get(first).isEmpty(), "wrong alias assembly skipped");
+        check(result.functionsByClass().get(second).equals(List.of(function)),
+                "alias selected by assembly");
+    }
+
+    private static void retainsLiteralHashNames() {
+        var entry = entry("Sample.Game", "Area__012345abcdef/Actor__abcdef012345.cs");
+        var function = function(92, "Area__012345abcdef_Actor__abcdef012345__Run");
+        var result = Il2CppFunctionMatcher.match(List.of(entry), List.of(function));
+        check(result.functionsByClass().get(entry).equals(List.of(function)),
+                "original spelling remains matchable");
+    }
+
+    private static void rejectsMalformedHashSuffixes() {
+        for (String suffix : List.of("__012345abcde", "__012345abcdef0", "__012345abcdeg",
+                "__012345ABCDEF", "_012345abcdef", "__012345abcdef_extra")) {
+            var entry = entry("Sample.Game", "Area" + suffix + "/Actor.cs");
+            var result = Il2CppFunctionMatcher.match(List.of(entry),
+                    List.of(function(96, "Area_Actor__Run")));
+            check(result.matchedFunctions() == 0, "malformed suffix remains literal: " + suffix);
+        }
     }
 
     private static Il2CppClassCatalog.ClassEntry entry(String assembly, String relative) {

@@ -17,6 +17,7 @@ public final class Il2CppClassCatalogTest {
         try {
             discoversClassesInStableOrder(directory);
             preservesClassIdentity(directory);
+            preservesHashedPaths(directory);
             appliesAssemblyAndClassSelection(directory);
             appliesBoundaryAwareFrameworkRules(directory);
             appliesDefaultWhitelistAndAllScope(directory);
@@ -56,6 +57,20 @@ public final class Il2CppClassCatalogTest {
         check(entry.className().equals("Runner"), "class name");
         check(entry.selectionKeys().contains("world.actors.runner"), "selection key");
         check(entry.candidateNames().contains("World_Actors_Runner"), "candidate name");
+    }
+
+    private static void preservesHashedPaths(Path directory) throws Exception {
+        Path root = Files.createDirectory(directory.resolve("hashed"));
+        String relative = "_Generated___012345abcdef/Actor__abcdef012345.cs";
+        Path source = write(root, "Sample.Game/" + relative);
+        var entry = Il2CppClassCatalog.scan(root).get(0);
+        check(entry.relativeSource().equals(relative), "physical relative path retained");
+        check(entry.source().equals(source.toRealPath()), "physical file retained");
+        check(entry.namespaceName().equals("_Generated___012345abcdef"),
+                "physical namespace retained");
+        check(entry.className().equals("Actor__abcdef012345"), "physical class name retained");
+        check(entry.candidateNames().contains("_Generated_/Actor"), "logical alias added");
+        check(Files.exists(source), "source was not renamed");
     }
 
     private static void appliesAssemblyAndClassSelection(Path directory) throws Exception {
