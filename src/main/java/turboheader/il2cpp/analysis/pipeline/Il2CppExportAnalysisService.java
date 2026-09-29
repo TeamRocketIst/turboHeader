@@ -24,6 +24,7 @@ import turboheader.il2cpp.analysis.noreturn.Il2CppNoreturnAnalyzer;
 import turboheader.il2cpp.analysis.sharedgeneric.Il2CppSharedGenericCallAnalyzer;
 import turboheader.il2cpp.analysis.sharedgeneric.Il2CppSharedGenericCallPublisher;
 import turboheader.il2cpp.metadata.Il2CppSharedGenericCallStore;
+import turboheader.il2cpp.metadata.Il2CppReferenceGenericCallStore;
 
 public final class Il2CppExportAnalysisService {
     private static final List<String> GLOBAL_ANALYZERS = List.of(
@@ -80,11 +81,9 @@ public final class Il2CppExportAnalysisService {
                 program, functions, helpers.anchors(), monitor);
         monitor.checkCancelled();
         var sharedGenericCatalog = Il2CppSharedGenericCallStore.read(program);
-        var sharedGenericCalls = sharedGenericCatalog.isPresent()
-                ? Il2CppSharedGenericCallAnalyzer.analyze(program, functions,
-                        sharedGenericCatalog.orElseThrow(), monitor)
-                : Il2CppSharedGenericCallAnalyzer.AnalysisStats.notSupplied(
-                        program.getLanguage().getProcessor().toString());
+        var referenceGenericCatalog = Il2CppReferenceGenericCallStore.read(program);
+        var sharedGenericCalls = Il2CppSharedGenericCallAnalyzer.analyze(program, functions,
+                sharedGenericCatalog, referenceGenericCatalog, monitor);
         monitor.checkCancelled();
         // Delegate receivers can come from shared-generic result buffers.
         var publishedSharedGenericCalls = Il2CppSharedGenericCallPublisher.publish(

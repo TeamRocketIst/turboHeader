@@ -20,6 +20,7 @@ import ghidra.program.util.SymbolicPropogator;
 import ghidra.util.task.TaskMonitor;
 import turboheader.il2cpp.metadata.Il2CppSharedGenericCallCatalog;
 import turboheader.il2cpp.metadata.SharedGenericCallSignature;
+import turboheader.il2cpp.metadata.Il2CppReferenceGenericCallCatalog;
 
 public final class Il2CppSharedGenericCallAnalyzer {
     private static final int MAX_BACKWARD_INSTRUCTIONS = 24;
@@ -31,18 +32,29 @@ public final class Il2CppSharedGenericCallAnalyzer {
     public static AnalysisStats analyze(Program program, List<Function> functions,
             Il2CppSharedGenericCallCatalog catalog, TaskMonitor taskMonitor)
             throws Exception {
+        return analyze(program, functions, Optional.of(catalog), Optional.empty(), taskMonitor);
+    }
+
+    public static AnalysisStats analyze(Program program, List<Function> functions,
+            Optional<Il2CppSharedGenericCallCatalog> catalog,
+            Optional<Il2CppReferenceGenericCallCatalog> referenceCatalog, TaskMonitor taskMonitor)
+            throws Exception {
         Objects.requireNonNull(program, "program");
         Objects.requireNonNull(functions, "functions");
         Objects.requireNonNull(catalog, "catalog");
+        Objects.requireNonNull(referenceCatalog, "referenceCatalog");
         TaskMonitor monitor = taskMonitor == null ? TaskMonitor.DUMMY : taskMonitor;
         long started = System.nanoTime();
 
         String processor = program.getLanguage().getProcessor().toString();
+        if (catalog.isEmpty() && referenceCatalog.isEmpty()) return AnalysisStats.notSupplied(processor);
         if (!processor.equalsIgnoreCase("AARCH64")) {
             return AnalysisStats.unsupported(processor, System.nanoTime() - started);
         }
 
-        Map<Address, List<MappedEntry>> byTarget = mappedEntries(program, catalog);
+        Map<Address, List<MappedCall>> byTarget = new LinkedHashMap<>();
+        if (catalog.isPresent()) byTarget.putAll(mappedEntries(program, catalog.orElseThrow()));
+        if (referenceCatalog.isPresent()) mapReferences(program, referenceCatalog.orElseThrow(), byTarget, monitor);
         List<FunctionCandidates> candidateFunctions = selectCandidates(
                 program, functions, byTarget, monitor);
         Register stackPointer = requireRegister(program, "sp");
@@ -55,10 +67,11 @@ public final class Il2CppSharedGenericCallAnalyzer {
             monitor.checkCancelled();
             candidates += group.calls().size();
             SymbolicPropogator propagation = propagate(program, group.function(), monitor);
+            var referenceEvidence = new ReferenceGenericCallEvidence(program, group.function(), monitor);
             for (Candidate candidate : group.calls()) {
                 monitor.checkCancelled();
                 ProofResult result = prove(program, group.function(), candidate,
-                        propagation, stackPointer);
+                        propagation, stackPointer, referenceEvidence);
                 if (result.proof() != null) {
                     proofs.add(result.proof());
                     continue;
@@ -78,9 +91,9 @@ public final class Il2CppSharedGenericCallAnalyzer {
                 System.nanoTime() - started);
     }
 
-    private static Map<Address, List<MappedEntry>> mappedEntries(Program program,
+    private static Map<Address, List<MappedCall>> mappedEntries(Program program,
             Il2CppSharedGenericCallCatalog catalog) throws Exception {
-        Map<Address, List<MappedEntry>> result = new LinkedHashMap<>();
+        Map<Address, List<MappedCall>> result = new LinkedHashMap<>();
         Map<String, Optional<GhidraSharedGenericPrototypeResolver.CallStorage>> storageCache =
                 new LinkedHashMap<>();
         Address imageBase = program.getImageBase();
@@ -97,8 +110,33 @@ public final class Il2CppSharedGenericCallAnalyzer {
         return result;
     }
 
+    private static void mapReferences(Program program, Il2CppReferenceGenericCallCatalog catalog,
+            Map<Address, List<MappedCall>> result, TaskMonitor monitor) throws Exception {
+        record Key(Address target, String signature) { }
+        var cache = new LinkedHashMap<Key, Optional<GhidraReferenceGenericPrototypeResolver.Resolved>>();
+        for (var entry : catalog.entries()) {
+            monitor.checkCancelled();
+            try {
+                Address slot = program.getImageBase().addNoWrap(entry.methodInfoAddress());
+                Address target = program.getImageBase().addNoWrap(entry.methodAddress());
+                var block = program.getMemory().getBlock(target);
+                var data = program.getMemory().getBlock(slot);
+                if (block == null || !block.isExecute() || !block.isInitialized() || data == null ||
+                        !data.isRead() || !data.isInitialized() || !data.contains(slot.addNoWrap(7))) continue;
+                var storage = cache.computeIfAbsent(new Key(target, entry.signature()), key ->
+                        GhidraReferenceGenericPrototypeResolver.resolve(program,
+                                program.getFunctionManager().getFunctionAt(target), entry.signature()));
+                result.computeIfAbsent(target, ignored -> new ArrayList<>()).add(
+                        new MappedReference(entry, slot, target, storage.orElse(null)));
+            }
+            catch (ghidra.program.model.address.AddressOverflowException e) {
+                // An unmappable artifact address cannot prove a native call.
+            }
+        }
+    }
+
     private static List<FunctionCandidates> selectCandidates(Program program,
-            List<Function> functions, Map<Address, List<MappedEntry>> byTarget,
+            List<Function> functions, Map<Address, List<MappedCall>> byTarget,
             TaskMonitor monitor) throws Exception {
         List<FunctionCandidates> result = new ArrayList<>();
         for (Function function : functions) {
@@ -109,7 +147,7 @@ public final class Il2CppSharedGenericCallAnalyzer {
                 monitor.checkCancelled();
                 Instruction instruction = instructions.next();
                 Address target = directCallTarget(instruction);
-                List<MappedEntry> entries = target == null ? null : byTarget.get(target);
+                List<MappedCall> entries = target == null ? null : byTarget.get(target);
                 if (entries != null) {
                     calls.add(new Candidate(instruction, target, entries));
                 }
@@ -123,7 +161,7 @@ public final class Il2CppSharedGenericCallAnalyzer {
 
     private static ProofResult prove(Program program, Function function,
             Candidate candidate, SymbolicPropogator propagation,
-            Register stackPointer) {
+            Register stackPointer, ReferenceGenericCallEvidence referenceEvidence) throws Exception {
         List<Register> methodInfoRegisters = methodInfoRegisters(candidate.entries());
         if (methodInfoRegisters.isEmpty()) {
             return ProofResult.rejected(RejectionReason.ABI_STORAGE);
@@ -145,9 +183,9 @@ public final class Il2CppSharedGenericCallAnalyzer {
                 continue;
             }
             resolvedValue = true;
-            for (MappedEntry entry : candidate.entries()) {
-                if (entry.storage() == null ||
-                        !sameBaseRegister(entry.storage().methodInfo(), register) ||
+            for (MappedCall entry : candidate.entries()) {
+                if (entry.methodInfoRegister() == null ||
+                        !sameBaseRegister(entry.methodInfoRegister(), register) ||
                         entry.methodInfo().getOffset() != methodInfoValue.getValue()) {
                     continue;
                 }
@@ -167,7 +205,18 @@ public final class Il2CppSharedGenericCallAnalyzer {
             return ProofResult.rejected(RejectionReason.METHOD_INFO_AMBIGUOUS);
         }
         EntryMatch match = matches.getFirst();
-        MappedEntry matched = match.entry();
+        if (match.entry() instanceof MappedReference reference) {
+            if (!referenceEvidence.matches(candidate.instruction(),
+                    reference.methodInfoRegister(), reference.methodInfo(),
+                    reference.entry().methodSpecIndex())) {
+                return ProofResult.rejected(RejectionReason.REFERENCE_IDENTITY);
+            }
+            return ProofResult.proven(new ProvenCall(candidate.instruction().getAddress(),
+                    reference.method(), reference.methodInfo(), reference.entry().methodAddress(),
+                    reference.entry().methodInfoAddress(), new GenericCallContract.ReferenceReturn(
+                            reference.entry().signature(), reference.entry().methodSpecIndex())));
+        }
+        MappedEntry matched = (MappedEntry) match.entry();
 
         SymbolicPropogator.Value resultValue = propagation.getRegisterValue(
                 candidate.instruction().getAddress(), matched.storage().result());
@@ -187,13 +236,13 @@ public final class Il2CppSharedGenericCallAnalyzer {
                 matched.entry().methodInfoAddress(), matched.entry().signature()));
     }
 
-    private static List<Register> methodInfoRegisters(List<MappedEntry> entries) {
+    private static List<Register> methodInfoRegisters(List<MappedCall> entries) {
         List<Register> result = new ArrayList<>();
-        for (MappedEntry entry : entries) {
-            if (entry.storage() == null) {
+        for (MappedCall entry : entries) {
+            if (entry.methodInfoRegister() == null) {
                 continue;
             }
-            Register register = entry.storage().methodInfo().getBaseRegister();
+            Register register = entry.methodInfoRegister().getBaseRegister();
             boolean found = false;
             for (Register existing : result) {
                 if (sameBaseRegister(existing, register)) {
@@ -332,7 +381,8 @@ public final class Il2CppSharedGenericCallAnalyzer {
         METHOD_INFO_VALUE("metadata base is unresolved"),
         METHOD_INFO_MISMATCH("metadata slot is not in the catalogue"),
         METHOD_INFO_AMBIGUOUS("metadata slot is ambiguous"),
-        RESULT_BUFFER("assigned result register is not a bounded stack buffer");
+        RESULT_BUFFER("assigned result register is not a bounded stack buffer"),
+        REFERENCE_IDENTITY("reference-return metadata identity or local provenance is unproven");
 
         private final String label;
 
@@ -346,7 +396,16 @@ public final class Il2CppSharedGenericCallAnalyzer {
     }
 
     public record ProvenCall(Address callsite, Address target, Address methodInfo,
-            long methodAddress, long methodInfoAddress, String signature) {
+            long methodAddress, long methodInfoAddress, GenericCallContract contract) {
+        public ProvenCall(Address callsite, Address target, Address methodInfo,
+                long methodAddress, long methodInfoAddress, String signature) {
+            this(callsite, target, methodInfo, methodAddress, methodInfoAddress,
+                    new GenericCallContract.ResultBuffer(signature));
+        }
+
+        public String signature() {
+            return contract.signature();
+        }
     }
 
     public record RejectionSample(Address callsite, RejectionReason reason) {
@@ -381,18 +440,40 @@ public final class Il2CppSharedGenericCallAnalyzer {
         public double elapsedSeconds() {
             return elapsedNanos / 1_000_000_000.0;
         }
+
+        public long referenceReturnCalls() {
+            return proofs.stream().filter(proof ->
+                    proof.contract() instanceof GenericCallContract.ReferenceReturn).count();
+        }
+    }
+
+    private sealed interface MappedCall {
+        Address methodInfo();
+        Address method();
+        Register methodInfoRegister();
     }
 
     private record MappedEntry(Il2CppSharedGenericCallCatalog.Entry entry,
             Address methodInfo, Address method,
-            GhidraSharedGenericPrototypeResolver.CallStorage storage) {
+            GhidraSharedGenericPrototypeResolver.CallStorage storage) implements MappedCall {
+        public Register methodInfoRegister() {
+            return storage == null ? null : storage.methodInfo();
+        }
     }
 
-    private record EntryMatch(MappedEntry entry, long methodInfoValue) {
+    private record MappedReference(Il2CppReferenceGenericCallCatalog.Entry entry,
+            Address methodInfo, Address method,
+            GhidraReferenceGenericPrototypeResolver.Resolved storage) implements MappedCall {
+        public Register methodInfoRegister() {
+            return storage == null ? null : storage.methodInfo();
+        }
+    }
+
+    private record EntryMatch(MappedCall entry, long methodInfoValue) {
     }
 
     private record Candidate(Instruction instruction, Address target,
-            List<MappedEntry> entries) {
+            List<MappedCall> entries) {
     }
 
     private record FunctionCandidates(Function function, List<Candidate> calls) {

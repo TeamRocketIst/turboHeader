@@ -125,6 +125,8 @@ JAVA_TOOL_OPTIONS="${JAVA_TOOL_OPTIONS:+$JAVA_TOOL_OPTIONS }-Dapplication.settin
   -postScript VerifyTurboHeaderDelegatePrototype.java \
   -postScript VerifyTurboHeaderDelegateCall.java \
   -postScript VerifyTurboHeaderAnalysisDependencies.java \
+  -postScript VerifyTurboHeaderReferenceGenericCalls.java \
+  -postScript VerifyTurboHeaderInstructionEffects.java \
   2>&1 | tee -a "$LOG"
 
 JAVA_TOOL_OPTIONS="${JAVA_TOOL_OPTIONS:+$JAVA_TOOL_OPTIONS }-Dapplication.settingsdir=$JAVA_PROJECT_ROOT/settings -Dapplication.cachedir=$JAVA_PROJECT_ROOT/cache" \
@@ -174,6 +176,8 @@ grep -q 'TurboHeader reference-generic catalogue rejection and clearing verified
 grep -q 'TurboHeader shared-generic call proof verification passed' "$LOG"
 grep -q 'TurboHeader shared-generic override verification passed' "$LOG"
 grep -q 'TurboHeader analysis dependency verification passed' "$LOG"
+grep -q 'TurboHeader reference-generic proof and publication verification passed' "$LOG"
+grep -q 'TurboHeader instruction effects verification passed' "$LOG"
 grep -Eq 'TurboHeader export plan: discovered=1, selected=1, scanned=[0-9]+, matched=1, unmatched=0, ambiguous=0, assembly-resolved=0, assembly-mismatches=0, jobs=8\.' "$LOG"
 grep -Eq 'TurboHeader export complete: classes=1, functions=1, failed=0\.' "$LOG"
 grep -Eq 'TurboHeader phase timing: scan=[0-9.]+s, analysis=[0-9.]+s, prepare=[0-9.]+s, decompile=[0-9.]+s, writes=[0-9.]+s, total=[0-9.]+s\.' "$LOG"

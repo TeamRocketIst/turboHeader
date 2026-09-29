@@ -45,11 +45,28 @@ public final class Il2CppSharedGenericCallPublisher {
         int added = 0;
         try {
             List<Publication> publications = new ArrayList<>(unique.size());
+            Map<Function, ReferenceGenericCallEvidence> referenceEvidence = new LinkedHashMap<>();
             for (var proof : unique) {
                 monitor.checkCancelled();
-                var prototype = SharedGenericCallSignature.parse(proof.signature());
-                FunctionSignature signature = GhidraSharedGenericPrototypeResolver.resolve(
-                        program, proof.methodInfoAddress(), prototype);
+                FunctionSignature signature;
+                if (proof.contract() instanceof GenericCallContract.ReferenceReturn reference) {
+                    var resolved = GhidraReferenceGenericPrototypeResolver.resolve(program,
+                            program.getFunctionManager().getFunctionAt(proof.target()), reference.signature())
+                            .orElseThrow(() -> new IllegalStateException("reference-return ABI or types changed"));
+                    var call = program.getListing().getInstructionAt(proof.callsite());
+                    var caller = program.getFunctionManager().getFunctionContaining(proof.callsite());
+                    if (call == null || caller == null || !referenceEvidence.computeIfAbsent(caller,
+                            function -> new ReferenceGenericCallEvidence(program, function, monitor)).matches(
+                            call, resolved.methodInfo(), proof.methodInfo(), reference.methodSpecIndex())) {
+                        throw new IllegalStateException("reference-return identity changed before publication");
+                    }
+                    signature = resolved.signature();
+                }
+                else {
+                    var prototype = SharedGenericCallSignature.parse(proof.signature());
+                    signature = GhidraSharedGenericPrototypeResolver.resolve(
+                            program, proof.methodInfoAddress(), prototype);
+                }
                 publications.add(validate(program, proof, signature));
             }
             for (Publication publication : publications) {
@@ -92,7 +109,7 @@ public final class Il2CppSharedGenericCallPublisher {
             var previous = byCallsite.putIfAbsent(proof.callsite(), proof);
             if (previous != null && (!previous.target().equals(proof.target()) ||
                     previous.methodInfoAddress() != proof.methodInfoAddress() ||
-                    !previous.signature().equals(proof.signature()))) {
+                    !previous.contract().equals(proof.contract()))) {
                 throw new IllegalStateException(
                         "conflicting shared-generic proofs at " + proof.callsite());
             }

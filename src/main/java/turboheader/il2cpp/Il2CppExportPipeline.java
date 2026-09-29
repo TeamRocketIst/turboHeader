@@ -125,11 +125,12 @@ public final class Il2CppExportPipeline {
         }
         output.accept(String.format(Locale.ROOT,
                 "TurboHeader shared generic calls: status=%s, functions=%d, " +
-                "candidates=%d, proven=%d, published=%d, rejected=%s, total=%.3fs.",
+                "candidates=%d, proven=%d, reference-returns=%d, published=%d, rejected=%s, total=%.3fs.",
                 after.sharedGenericCalls().outcome(),
                 after.sharedGenericCalls().candidateFunctions(),
                 after.sharedGenericCalls().candidateCalls(),
                 after.sharedGenericCalls().provenCalls(),
+                after.sharedGenericCalls().referenceReturnCalls(),
                 after.publishedSharedGenericCalls().added(),
                 after.sharedGenericCalls().rejections(),
                 after.sharedGenericCalls().elapsedSeconds() +
