@@ -137,6 +137,8 @@ if [[ -n "${GHIDRA_INSTALL_DIR:-}" ]]; then
     turboheader.il2cpp.metadata.Il2CppSharedGenericCallCatalogTest
   java -cp "$GSON_JAR:$BUILD/classes" \
     turboheader.il2cpp.metadata.Il2CppReferenceGenericCallCatalogTest
+
+  bash "$ROOT/tests/test_delegate_workers.sh"
 fi
 
 if [[ "${TURBOHEADER_JNI_ONLY:-0}" != "1" ]]; then

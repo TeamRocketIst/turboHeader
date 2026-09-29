@@ -8,15 +8,13 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
-import ghidra.app.decompiler.DecompInterface;
 import ghidra.program.model.address.Address;
 import ghidra.program.model.listing.Function;
 import ghidra.program.model.listing.Program;
 import ghidra.util.task.TaskMonitor;
 
-/** Read-only delegate-call proof over normalized P-code. */
+/** Read-only delegate-call proof over typed P-code. */
 public final class Il2CppDelegateCallAnalyzer {
-    private static final int DECOMPILE_TIMEOUT_SECONDS = 30;
     private static final int MAX_REJECTION_SAMPLES = 4;
 
     private Il2CppDelegateCallAnalyzer() {
@@ -25,10 +23,18 @@ public final class Il2CppDelegateCallAnalyzer {
     public static AnalysisStats analyze(Program program, List<Function> selectedFunctions,
             Optional<Il2CppDelegatePrototypeCatalog> prototypes,
             TaskMonitor taskMonitor) throws Exception {
+        return analyze(program, selectedFunctions, prototypes, 1, taskMonitor);
+    }
+
+    public static AnalysisStats analyze(Program program, List<Function> selectedFunctions,
+            Optional<Il2CppDelegatePrototypeCatalog> prototypes, int workers,
+            TaskMonitor taskMonitor) throws Exception {
+        DelegateProofCoordinator.validateWorkers(workers);
         Objects.requireNonNull(program, "program");
         Objects.requireNonNull(selectedFunctions, "selectedFunctions");
         Objects.requireNonNull(prototypes, "prototypes");
         TaskMonitor monitor = taskMonitor == null ? TaskMonitor.DUMMY : taskMonitor;
+        monitor.checkCancelled();
         long started = System.nanoTime();
         if (prototypes.isEmpty()) {
             return empty(Outcome.DISABLED, started);
@@ -48,13 +54,16 @@ public final class Il2CppDelegateCallAnalyzer {
         if (candidates.isEmpty()) {
             return new AnalysisStats(Outcome.COMPLETE, 0, 0, 0, 0, 0, 0, 0,
                     DelegateCallRejectionCounts.none(), List.of(), List.of(),
-                    new PhaseTiming(layoutNanos, candidateNanos, 0, 0),
+                    new PhaseTiming(layoutNanos, candidateNanos, 0, 0, 0),
                     System.nanoTime() - started);
         }
 
         long modificationNumber = program.getModificationNumber();
-        var resolver = new GhidraPcodeDelegateCallResolver(
-                layout.orElseThrow(), prototypes.orElseThrow());
+        long proofStarted = System.nanoTime();
+        var results = DelegateProofCoordinator.analyze(candidates, workers, monitor,
+                lane -> new DelegateProofWorker(program,
+                        layout.orElseThrow(), prototypes.orElseThrow()));
+        long proofWallNanos = System.nanoTime() - proofStarted;
         int completed = 0;
         int failed = 0;
         int indirectCalls = 0;
@@ -66,61 +75,46 @@ public final class Il2CppDelegateCallAnalyzer {
         List<RejectedCall> rejectionSamples = new ArrayList<>();
         List<ProvenCall> proofs = new ArrayList<>();
 
-        DecompInterface decompiler = new DecompInterface();
-        try {
-            decompiler.toggleCCode(false);
-            if (!decompiler.openProgram(program)) {
-                throw new IllegalStateException("Ghidra decompiler did not open the program");
+        for (int index = 0; index < candidates.size(); index++) {
+            monitor.checkCancelled();
+            Function function = candidates.get(index);
+            var result = results.get(index);
+            decompilationNanos = Math.addExact(decompilationNanos, result.decompilationNanos());
+            resolutionNanos = Math.addExact(resolutionNanos, result.resolutionNanos());
+            var resolved = result.resolved();
+            if (resolved == null) {
+                failed++;
+                continue;
             }
-            if (!decompiler.setSimplificationStyle("decompile")) {
-                throw new IllegalStateException("Ghidra decompiler rejected decompile style");
-            }
-            for (Function function : candidates) {
-                monitor.checkCancelled();
-                long decompileStarted = System.nanoTime();
-                var result = decompiler.decompileFunction(
-                        function, DECOMPILE_TIMEOUT_SECONDS, monitor);
-                decompilationNanos += System.nanoTime() - decompileStarted;
-                if (!result.decompileCompleted() || result.getHighFunction() == null) {
-                    failed++;
-                    continue;
-                }
-                completed++;
-                long resolutionStarted = System.nanoTime();
-                var resolved = resolver.resolve(result.getHighFunction());
-                resolutionNanos += System.nanoTime() - resolutionStarted;
-                indirectCalls += resolved.indirectCalls();
-                delegateCandidates += resolved.delegateCandidates();
-                shapeRejected += resolved.shapeRejected();
-                for (var call : resolved.calls()) {
-                    Address callsite = call.callAddress();
-                    if (!ownedCallsite(program, function, callsite)) {
-                        var reason = DelegateCallRejectionCounts.Reason.CALLSITE;
-                        rejectionReasons.add(reason);
-                        if (rejectionSamples.size() < MAX_REJECTION_SAMPLES) {
-                            rejectionSamples.add(new RejectedCall(callsite, reason));
-                        }
-                        continue;
-                    }
-                    if (call.resolution().proof().isPresent()) {
-                        var proof = call.resolution().proof().orElseThrow();
-                        proofs.add(new ProvenCall(callsite, proof.typeId(),
-                                proof.objectType(), proof.signature()));
-                        continue;
-                    }
-                    var reason = DelegateCallRejectionCounts.reason(
-                            call.resolution().status());
+            completed++;
+            indirectCalls += resolved.indirectCalls();
+            delegateCandidates += resolved.delegateCandidates();
+            shapeRejected += resolved.shapeRejected();
+            for (var call : resolved.calls()) {
+                Address callsite = call.callAddress();
+                if (!ownedCallsite(program, function, callsite)) {
+                    var reason = DelegateCallRejectionCounts.Reason.CALLSITE;
                     rejectionReasons.add(reason);
                     if (rejectionSamples.size() < MAX_REJECTION_SAMPLES) {
                         rejectionSamples.add(new RejectedCall(callsite, reason));
                     }
+                    continue;
+                }
+                if (call.resolution().proof().isPresent()) {
+                    var proof = call.resolution().proof().orElseThrow();
+                    proofs.add(new ProvenCall(callsite, proof.typeId(),
+                            proof.objectType(), proof.signature()));
+                    continue;
+                }
+                var reason = DelegateCallRejectionCounts.reason(call.resolution().status());
+                rejectionReasons.add(reason);
+                if (rejectionSamples.size() < MAX_REJECTION_SAMPLES) {
+                    rejectionSamples.add(new RejectedCall(callsite, reason));
                 }
             }
         }
-        finally {
-            decompiler.dispose();
-        }
 
+        monitor.checkCancelled();
         if (program.getModificationNumber() != modificationNumber) {
             throw new IllegalStateException("delegate-call proof changed the Ghidra program");
         }
@@ -129,7 +123,7 @@ public final class Il2CppDelegateCallAnalyzer {
                 indirectCalls, delegateCandidates, shapeRejected, proofs.size(),
                 DelegateCallRejectionCounts.count(rejectionReasons), rejectionSamples, proofs,
                 new PhaseTiming(layoutNanos, candidateNanos,
-                        decompilationNanos, resolutionNanos),
+                        decompilationNanos, resolutionNanos, proofWallNanos),
                 System.nanoTime() - started);
     }
 
@@ -165,7 +159,7 @@ public final class Il2CppDelegateCallAnalyzer {
             long layoutNanos) {
         return new AnalysisStats(outcome, 0, 0, 0, 0, 0, 0, 0,
                 DelegateCallRejectionCounts.none(), List.of(), List.of(),
-                new PhaseTiming(layoutNanos, 0, 0, 0),
+                new PhaseTiming(layoutNanos, 0, 0, 0, 0),
                 System.nanoTime() - started);
     }
 
@@ -195,17 +189,23 @@ public final class Il2CppDelegateCallAnalyzer {
     }
 
     public record PhaseTiming(long layoutNanos, long candidateSelectionNanos,
-            long decompilationNanos, long resolutionNanos) {
+            long decompilationNanos, long resolutionNanos, long proofWallNanos) {
         public PhaseTiming {
             if (layoutNanos < 0 || candidateSelectionNanos < 0 ||
-                    decompilationNanos < 0 || resolutionNanos < 0) {
+                    decompilationNanos < 0 || resolutionNanos < 0 || proofWallNanos < 0) {
                 throw new IllegalArgumentException("delegate-call timing must not be negative");
             }
         }
 
+        /** Includes overlapping worker durations, not elapsed time. */
         public long measuredNanos() {
-            return layoutNanos + candidateSelectionNanos +
-                    decompilationNanos + resolutionNanos;
+            return Math.addExact(Math.addExact(layoutNanos, candidateSelectionNanos),
+                    Math.addExact(decompilationNanos, resolutionNanos));
+        }
+
+        public long wallNanos() {
+            return Math.addExact(Math.addExact(layoutNanos, candidateSelectionNanos),
+                    proofWallNanos);
         }
     }
 
@@ -228,7 +228,7 @@ public final class Il2CppDelegateCallAnalyzer {
                     shapeRejected + provenCalls + rejections.total() != delegateCandidates ||
                     rejectionSamples.size() > MAX_REJECTION_SAMPLES ||
                     rejectionSamples.size() > rejections.total() ||
-                    timing.measuredNanos() > elapsedNanos || elapsedNanos < 0) {
+                    timing.wallNanos() > elapsedNanos || elapsedNanos < 0) {
                 throw new IllegalArgumentException("invalid delegate-call statistics");
             }
         }

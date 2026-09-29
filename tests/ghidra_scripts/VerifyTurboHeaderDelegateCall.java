@@ -1,4 +1,4 @@
-// Verifies exact delegate-call proof over normalized P-code.
+// Verifies exact delegate-call proof over typed P-code.
 // @category Test
 
 import java.util.List;
@@ -85,6 +85,26 @@ public class VerifyTurboHeaderDelegateCall extends GhidraScript {
                 "mismatched delegate objects were not rejected");
         require(currentProgram.getModificationNumber() == modificationNumber,
                 "delegate-call analysis changed the Ghidra program");
+
+        for (int workers : new int[] { 1, 2, 4 }) {
+            var parallel = Il2CppDelegateCallAnalyzer.analyze(currentProgram,
+                    List.of(positive, mismatch, positive), catalog, workers, monitor);
+            require(parallel.outcome() == result.outcome() &&
+                    parallel.candidateFunctions() == result.candidateFunctions() &&
+                    parallel.completedFunctions() == result.completedFunctions() &&
+                    parallel.failedFunctions() == result.failedFunctions() &&
+                    parallel.indirectCalls() == result.indirectCalls() &&
+                    parallel.delegateCandidates() == result.delegateCandidates() &&
+                    parallel.shapeRejected() == result.shapeRejected() &&
+                    parallel.provenCalls() == result.provenCalls() &&
+                    parallel.rejections().equals(result.rejections()) &&
+                    parallel.rejectionSamples().equals(result.rejectionSamples()) &&
+                    parallel.proofs().equals(result.proofs()),
+                    "delegate worker results differ for " + workers + " workers");
+            require(currentProgram.getModificationNumber() == modificationNumber,
+                    "delegate workers changed the Ghidra program");
+        }
+        println("TurboHeader delegate worker parity verification passed");
 
         Address positiveCallsite = positiveEntry.add(0x14);
         Address tailCallsite = tailEntry.add(0x14);

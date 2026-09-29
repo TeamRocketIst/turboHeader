@@ -11,6 +11,7 @@ fi
 
 HEADLESS="$GHIDRA_INSTALL_DIR/support/analyzeHeadless"
 [[ -f "$HEADLESS" ]] || { printf 'analyzeHeadless not found under %s\n' "$GHIDRA_INSTALL_DIR" >&2; exit 2; }
+bash "$ROOT/tests/test_delegate_workers.sh"
 
 TEST_TEMP="${TURBOHEADER_TEST_TEMP:-${TMPDIR:-/tmp}}"
 mkdir -p "$TEST_TEMP"
@@ -164,6 +165,7 @@ grep -q 'TurboHeader delegate-signature catalogue survived project reopen' "$LOG
 grep -q 'TurboHeader absent delegate-signature catalogue cleared stored facts' "$LOG"
 grep -q 'TurboHeader delegate prototype conversion verification passed' "$LOG"
 grep -q 'TurboHeader delegate-call P-code proof verification passed' "$LOG"
+grep -q 'TurboHeader delegate worker parity verification passed' "$LOG"
 grep -q 'TurboHeader delegate-call override verification passed' "$LOG"
 grep -q 'TurboHeader delegate-call override survived project reopen' "$LOG"
 grep -q 'TurboHeader delegate-call conflict rollback verification passed' "$LOG"
