@@ -12,16 +12,16 @@ import ghidra.program.model.listing.Function;
 import ghidra.util.task.CancelledListener;
 import ghidra.util.task.TaskMonitor;
 import ghidra.util.task.TaskMonitorAdapter;
+import turboheader.il2cpp.decompile.Il2CppDecompilationPolicy;
 
 final class DelegateProofCoordinator {
-    private static final int MAX_WORKERS = 4;
-
     private DelegateProofCoordinator() {
     }
 
     static void validateWorkers(int workers) {
-        if (workers < 1 || workers > MAX_WORKERS) {
-            throw new IllegalArgumentException("delegate workers must be between 1 and 4");
+        if (workers < 1 || workers > Il2CppDecompilationPolicy.MAX_DELEGATE_WORKERS) {
+            throw new IllegalArgumentException("delegate workers must be between 1 and " +
+                    Il2CppDecompilationPolicy.MAX_DELEGATE_WORKERS);
         }
     }
 

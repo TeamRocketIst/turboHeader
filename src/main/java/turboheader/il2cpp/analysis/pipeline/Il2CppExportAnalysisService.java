@@ -13,6 +13,7 @@ import ghidra.program.model.listing.Program;
 import ghidra.util.exception.CancelledException;
 import ghidra.util.task.TaskMonitor;
 import turboheader.il2cpp.decompile.Il2CppFunctionPreparationService;
+import turboheader.il2cpp.decompile.Il2CppDecompilationPolicy;
 import turboheader.il2cpp.analysis.delegatecall.Il2CppDelegateCallAnalyzer;
 import turboheader.il2cpp.analysis.delegatecall.Il2CppDelegateCallPublisher;
 import turboheader.il2cpp.analysis.delegatecall.Il2CppDelegatePrototypeCatalog;
@@ -60,8 +61,15 @@ public final class Il2CppExportAnalysisService {
     public static AfterPreparationResult analyzeAfterPreparation(Program program,
             Il2CppFunctionPreparationService.PreparationResult preparation,
             TaskMonitor taskMonitor) throws Exception {
+        return analyzeAfterPreparation(program, preparation, 1, taskMonitor);
+    }
+
+    public static AfterPreparationResult analyzeAfterPreparation(Program program,
+            Il2CppFunctionPreparationService.PreparationResult preparation,
+            int decompileJobs, TaskMonitor taskMonitor) throws Exception {
         Objects.requireNonNull(program, "program");
         Objects.requireNonNull(preparation, "preparation");
+        int delegateWorkers = Il2CppDecompilationPolicy.delegateWorkers(decompileJobs);
         TaskMonitor monitor = taskMonitor == null ? TaskMonitor.DUMMY : taskMonitor;
         long started = System.nanoTime();
 
@@ -90,7 +98,7 @@ public final class Il2CppExportAnalysisService {
                 program, sharedGenericCalls.proofs(), monitor);
         monitor.checkCancelled();
         var delegateCalls = Il2CppDelegateCallAnalyzer.analyze(
-                program, functions, delegatePrototypes, monitor);
+                program, functions, delegatePrototypes, delegateWorkers, monitor);
         monitor.checkCancelled();
         var publishedInterfaceCalls = Il2CppInterfaceCallPublisher.publish(
                 program, interfaceCalls.proofs(), monitor);

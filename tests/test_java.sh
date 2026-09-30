@@ -9,6 +9,8 @@ rm -rf "$BUILD"
 mkdir -p "$BUILD/classes"
 
 javac --release 21 -d "$BUILD/classes" \
+  "$ROOT/src/main/java/turboheader/il2cpp/decompile/Il2CppDecompilationPolicy.java" \
+  "$ROOT/tests/java/turboheader/il2cpp/decompile/Il2CppDecompilationPolicyTest.java" \
   "$ROOT/src/main/java/turboheader/il2cpp/metadata/Il2CppStringLabels.java" \
   "$ROOT/tests/java/turboheader/il2cpp/metadata/Il2CppStringLabelsTest.java" \
   "$ROOT/src/main/java/turboheader/il2cpp/metadata/Il2CppMethodMetadataLabels.java" \
@@ -51,6 +53,7 @@ javac --release 21 -d "$BUILD/classes" \
   "$ROOT/src/main/java/turboheader/il2cpp/ModelDumpCli.java" \
   "$ROOT/tests/java/turboheader/il2cpp/model/CoreSmokeTest.java" \
   "$ROOT/tests/java/turboheader/il2cpp/JniSmokeTest.java"
+java -cp "$BUILD/classes" turboheader.il2cpp.decompile.Il2CppDecompilationPolicyTest
 java -cp "$BUILD/classes" turboheader.il2cpp.types.ImportDiagnosticsTest
 java -cp "$BUILD/classes" turboheader.il2cpp.types.CParserHeaderAdapterTest
 java -cp "$BUILD/classes" turboheader.il2cpp.metadata.MethodAssemblyIdentityTest
@@ -108,7 +111,6 @@ if [[ -n "${GHIDRA_INSTALL_DIR:-}" ]]; then
   [[ -n "$GSON_JAR" ]] || { printf 'Gson jar not found under Ghidra\n' >&2; exit 1; }
   javac --release 21 -cp "$GSON_JAR:$BUILD/classes" -d "$BUILD/classes" \
     "$ROOT/src/main/java/turboheader/il2cpp/Il2CppExportScope.java" \
-    "$ROOT/src/main/java/turboheader/il2cpp/decompile/Il2CppDecompilationPolicy.java" \
     "$ROOT/src/main/java/turboheader/il2cpp/HeadlessRequestReader.java" \
     "$ROOT/tests/java/turboheader/il2cpp/HeadlessRequestReaderTest.java" \
     "$ROOT/src/main/java/turboheader/il2cpp/metadata/ScriptMethodReader.java" \

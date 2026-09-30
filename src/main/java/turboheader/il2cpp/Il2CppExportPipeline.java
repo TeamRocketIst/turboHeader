@@ -71,7 +71,7 @@ public final class Il2CppExportPipeline {
 
         stage(monitor, output, "TurboHeader export: proving runtime helpers...");
         var after = Il2CppExportAnalysisService.analyzeAfterPreparation(
-                program, preparation, monitor);
+                program, preparation, request.decompileJobs(), monitor);
         long analysisNanos = before.elapsedNanos() + after.elapsedNanos();
         output.accept(String.format(Locale.ROOT,
                 "TurboHeader helpers: candidates=%d, interface=%d/%d, proven=%d, " +
@@ -107,9 +107,10 @@ public final class Il2CppExportPipeline {
                     sample.reason().label()));
         }
         output.accept(String.format(Locale.ROOT,
-                "TurboHeader delegate calls: status=%s, candidates=%d, " +
+                "TurboHeader delegate calls: worker-limit=%d, status=%s, candidates=%d, " +
                 "matched=%d/%d, proven=%d, published=%d, shape-rejected=%d, " +
                 "rejected=%s, total=%.3fs.",
+                Il2CppDecompilationPolicy.delegateWorkers(request.decompileJobs()),
                 after.delegateCalls().outcome(), after.delegateCalls().candidateFunctions(),
                 after.delegateCalls().delegateCandidates(),
                 after.delegateCalls().indirectCalls(), after.delegateCalls().provenCalls(),

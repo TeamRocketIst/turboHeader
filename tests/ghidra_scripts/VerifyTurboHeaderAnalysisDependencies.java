@@ -55,14 +55,16 @@ public class VerifyTurboHeaderAnalysisDependencies extends GhidraScript {
     }
 
     public static void verify(TaskMonitor monitor) throws Exception {
-        checkFixture(monitor, false, true, false);
-        checkFixture(monitor, true, false, false);
-        checkFixture(monitor, true, true, false);
-        checkFixture(monitor, true, true, true);
+        for (int jobs : List.of(1, 8, 12)) {
+            checkFixture(monitor, false, true, false, jobs);
+            checkFixture(monitor, true, false, false, jobs);
+            checkFixture(monitor, true, true, false, jobs);
+            checkFixture(monitor, true, true, true, jobs);
+        }
     }
 
     private static void checkFixture(TaskMonitor monitor, boolean metadata,
-            boolean validProducer, boolean conflict) throws Exception {
+            boolean validProducer, boolean conflict, int jobs) throws Exception {
         var language = DefaultLanguageService.getLanguageService()
                 .getLanguage(new LanguageID("AARCH64:LE:64:v8A"));
         Object owner = new Object();
@@ -88,9 +90,20 @@ public class VerifyTurboHeaderAnalysisDependencies extends GhidraScript {
             var cancelled = new TaskMonitorAdapter(true);
             cancelled.cancel();
             long beforeCancellation = program.getModificationNumber();
+            for (int invalidJobs : new int[] { -1, 0, 13, Integer.MAX_VALUE }) {
+                try {
+                    Il2CppExportAnalysisService.analyzeAfterPreparation(
+                            program, preparation, invalidJobs, monitor);
+                    throw new AssertionError("invalid job count accepted");
+                }
+                catch (IllegalArgumentException expected) {
+                    require(program.getModificationNumber() == beforeCancellation,
+                            "invalid worker configuration changed the program");
+                }
+            }
             try {
                 Il2CppExportAnalysisService.analyzeAfterPreparation(
-                        program, preparation, cancelled);
+                        program, preparation, jobs, cancelled);
                 throw new AssertionError("cancelled analysis continued");
             }
             catch (CancelledException expected) {
@@ -98,11 +111,11 @@ public class VerifyTurboHeaderAnalysisDependencies extends GhidraScript {
                         "cancelled analysis changed the program");
             }
             if (conflict) {
-                checkConflict(program, caller, preparation, monitor);
+                checkConflict(program, caller, preparation, jobs, monitor);
                 return;
             }
             var result = Il2CppExportAnalysisService.analyzeAfterPreparation(
-                    program, preparation, monitor);
+                    program, preparation, jobs, monitor);
             int expected = metadata && validProducer ? 1 : 0;
             require(result.sharedGenericCalls().provenCalls() == expected,
                     "unexpected producer proof count");
@@ -144,7 +157,7 @@ public class VerifyTurboHeaderAnalysisDependencies extends GhidraScript {
 
     private static void checkConflict(ProgramDB program, Function caller,
             Il2CppFunctionPreparationService.PreparationResult preparation,
-            TaskMonitor monitor) throws Exception {
+            int jobs, TaskMonitor monitor) throws Exception {
         Address producerCall = caller.getEntryPoint().add(7 * 4);
         Address delegateCall = caller.getEntryPoint().add(13 * 4);
         var existing = new FunctionDefinitionDataType("existing_prototype");
@@ -158,7 +171,7 @@ public class VerifyTurboHeaderAnalysisDependencies extends GhidraScript {
         }
         String original = overridePrototype(program, caller, producerCall);
         try {
-            Il2CppExportAnalysisService.analyzeAfterPreparation(program, preparation, monitor);
+            Il2CppExportAnalysisService.analyzeAfterPreparation(program, preparation, jobs, monitor);
             throw new AssertionError("conflicting producer override was overwritten");
         }
         catch (IllegalStateException expected) {
