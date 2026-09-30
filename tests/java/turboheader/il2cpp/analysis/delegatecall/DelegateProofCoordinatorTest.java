@@ -20,14 +20,18 @@ public final class DelegateProofCoordinatorTest {
         orderedLanes(2, 12);
         orderedLanes(4, 12);
         orderedLanes(4, 2);
+        orderedLanes(8, 16);
+        orderedLanes(8, 2);
         invalidRequests();
-        failureDrainsWorkers(true);
-        failureDrainsWorkers(false);
-        cancellationDrainsWorkers(false);
-        cancellationDrainsWorkers(true);
-        closeFailure();
+        for (int workers : new int[] { 2, 8 }) {
+            failureDrainsWorkers(workers, true);
+            failureDrainsWorkers(workers, false);
+            cancellationDrainsWorkers(workers, false);
+            cancellationDrainsWorkers(workers, true);
+            closeFailure(workers);
+        }
         overlappingTimings();
-        System.out.println("DelegateProofCoordinatorTest: 11 cases passed");
+        System.out.println("DelegateProofCoordinatorTest: 18 cases passed");
     }
 
     private static void orderedLanes(int workers, int count) throws Exception {
@@ -75,7 +79,7 @@ public final class DelegateProofCoordinatorTest {
         DelegateProofCoordinator.WorkerFactory forbidden = lane -> {
             throw new AssertionError("unexpected worker");
         };
-        for (int workers : new int[] { -1, 0, 5, Integer.MAX_VALUE }) {
+        for (int workers : new int[] { -1, 0, 9, Integer.MAX_VALUE }) {
             expect(IllegalArgumentException.class, () -> DelegateProofCoordinator.analyze(
                     functions(1), workers, TaskMonitor.DUMMY, forbidden));
         }
@@ -95,13 +99,13 @@ public final class DelegateProofCoordinatorTest {
                 functions(1), 1, cancelledOnRegistration, forbidden));
     }
 
-    private static void failureDrainsWorkers(boolean setupFailure) throws Exception {
-        var peerStarted = new CountDownLatch(1);
+    private static void failureDrainsWorkers(int workers, boolean setupFailure) throws Exception {
+        var peerStarted = new CountDownLatch(workers - 1);
         var closed = new AtomicInteger();
         var parent = new TaskMonitorAdapter(true);
         var failure = new IllegalStateException("synthetic failure");
         Throwable thrown = expect(IllegalStateException.class,
-                () -> DelegateProofCoordinator.analyze(functions(2), 2, parent, lane -> {
+                () -> DelegateProofCoordinator.analyze(functions(workers), workers, parent, lane -> {
                     if (lane == 0 && setupFailure) {
                         await(peerStarted);
                         throw failure;
@@ -123,13 +127,14 @@ public final class DelegateProofCoordinatorTest {
                     };
                 }));
         require(thrown == failure, "original failure was lost");
-        require(closed.get() == (setupFailure ? 1 : 2), "workers escaped failure cleanup");
+        require(closed.get() == (setupFailure ? workers - 1 : workers),
+                "workers escaped failure cleanup");
         require(!parent.isCancelled(), "internal failure cancelled the caller's monitor");
     }
 
-    private static void cancellationDrainsWorkers(boolean interrupt) throws Exception {
-        var started = new CountDownLatch(2);
-        var closing = new CountDownLatch(2);
+    private static void cancellationDrainsWorkers(int workers, boolean interrupt) throws Exception {
+        var started = new CountDownLatch(workers);
+        var closing = new CountDownLatch(workers);
         var releaseClose = new CountDownLatch(1);
         var closed = new AtomicInteger();
         var parent = new TaskMonitorAdapter(true);
@@ -137,7 +142,7 @@ public final class DelegateProofCoordinatorTest {
         var interrupted = new AtomicReference<Boolean>(false);
         Thread caller = new Thread(() -> {
             try {
-                DelegateProofCoordinator.analyze(functions(2), 2, parent, lane ->
+                DelegateProofCoordinator.analyze(functions(workers), workers, parent, lane ->
                         new DelegateProofCoordinator.Worker() {
                             public DelegateProofCoordinator.FunctionResult analyze(
                                     Function function, TaskMonitor monitor) throws Exception {
@@ -173,7 +178,7 @@ public final class DelegateProofCoordinatorTest {
             releaseClose.countDown();
             caller.join(5000);
             require(!caller.isAlive(), "coordinator did not drain workers");
-            require(closed.get() == 2, "cancelled workers were not closed");
+            require(closed.get() == workers, "cancelled workers were not closed");
             Class<?> expected = interrupt ? InterruptedException.class : CancelledException.class;
             require(expected.isInstance(failure.get()), "wrong cancellation: " + failure.get());
             require(interrupted.get() == interrupt, "interrupt status differs");
@@ -187,11 +192,11 @@ public final class DelegateProofCoordinatorTest {
         }
     }
 
-    private static void closeFailure() throws Exception {
+    private static void closeFailure(int workers) throws Exception {
         var closed = new AtomicInteger();
-        var started = new CountDownLatch(2);
+        var started = new CountDownLatch(workers);
         expect(IllegalStateException.class, () -> DelegateProofCoordinator.analyze(
-                functions(2), 2, TaskMonitor.DUMMY, lane -> new DelegateProofCoordinator.Worker() {
+                functions(workers), workers, TaskMonitor.DUMMY, lane -> new DelegateProofCoordinator.Worker() {
                     public DelegateProofCoordinator.FunctionResult analyze(
                             Function function, TaskMonitor monitor) throws Exception {
                         started.countDown();
@@ -204,7 +209,7 @@ public final class DelegateProofCoordinatorTest {
                         throw new IllegalStateException("synthetic close failure");
                     }
                 }));
-        require(closed.get() == 2, "failing workers were not closed");
+        require(closed.get() == workers, "failing workers were not closed");
     }
 
     private static void overlappingTimings() throws Exception {

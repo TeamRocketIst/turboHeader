@@ -86,7 +86,7 @@ public class VerifyTurboHeaderDelegateCall extends GhidraScript {
         require(currentProgram.getModificationNumber() == modificationNumber,
                 "delegate-call analysis changed the Ghidra program");
 
-        for (int workers : new int[] { 1, 2, 4 }) {
+        for (int workers : new int[] { 1, 2, 4, 8 }) {
             var parallel = Il2CppDelegateCallAnalyzer.analyze(currentProgram,
                     List.of(positive, mismatch, positive), catalog, workers, monitor);
             require(parallel.outcome() == result.outcome() &&
