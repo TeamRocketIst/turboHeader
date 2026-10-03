@@ -1,0 +1,155 @@
+name: Check Ghidra platform
+description: Build and test the packaged extension without publishing it
+inputs:
+  ghidra-version:
+    description: Official Ghidra version
+    required: true
+  ghidra-url:
+    description: Official distribution URL
+    required: true
+  ghidra-digest:
+    description: Distribution SHA-256 digest
+    required: true
+  platform:
+    description: TurboHeader native platform
+    required: true
+  arch:
+    description: Native architecture
+    required: true
+  ghidra-platform:
+    description: Ghidra native platform
+    required: true
+  library:
+    description: Native library filename
+    required: true
+  cli:
+    description: Native CLI filename
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Download and verify Ghidra
+      shell: bash
+      env:
+        GHIDRA_VERSION: ${{ inputs.ghidra-version }}
+        GHIDRA_URL: ${{ inputs.ghidra-url }}
+        GHIDRA_DIGEST: ${{ inputs.ghidra-digest }}
+      run: |
+        set -euo pipefail
+        mkdir -p build/compatibility
+        download_dir="$(mktemp -d "$RUNNER_TEMP/ghidra-compatibility.XXXXXX")"
+        export GHIDRA_DOWNLOAD_DIR="$download_dir"
+        if command -v cygpath >/dev/null 2>&1; then
+          export GHIDRA_DOWNLOAD_DIR="$(cygpath -m "$download_dir")"
+        fi
+        curl --fail --location --retry 3 --max-filesize 838860800 \
+          --output "$download_dir/ghidra.zip" "$GHIDRA_URL"
+        python3 - <<'PY'
+        import hashlib
+        import os
+        from pathlib import Path
+        import stat
+        import zipfile
+
+        path = Path(os.environ["GHIDRA_DOWNLOAD_DIR"]) / "ghidra.zip"
+        if path.stat().st_size > 800 * 1024 * 1024:
+            raise SystemExit("Ghidra ZIP exceeds download limit")
+        digest = hashlib.sha256()
+        with path.open("rb") as stream:
+            for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                digest.update(chunk)
+        if "sha256:" + digest.hexdigest() != os.environ["GHIDRA_DIGEST"]:
+            raise SystemExit("Ghidra distribution checksum mismatch")
+        root = "ghidra_" + os.environ["GHIDRA_VERSION"] + "_PUBLIC"
+        with zipfile.ZipFile(path) as archive:
+            members = archive.infolist()
+            names = set()
+            total = 0
+            if len(members) > 40000:
+                raise SystemExit("Ghidra ZIP contains too many entries")
+            for member in members:
+                name = member.filename
+                parts = name.rstrip("/").split("/")
+                mode = stat.S_IFMT(member.external_attr >> 16)
+                if (not all(parts) or parts[0] != root or
+                        any(part in (".", "..") for part in parts) or
+                        "\\" in name or "\0" in name or name in names or
+                        mode not in (0, stat.S_IFREG, stat.S_IFDIR)):
+                    raise SystemExit("Unsafe Ghidra ZIP entry")
+                names.add(name)
+                total += member.file_size
+                if total > 3 * 1024 * 1024 * 1024:
+                    raise SystemExit("Ghidra ZIP exceeds extraction limit")
+        PY
+        mkdir "$download_dir/distribution"
+        if [[ "$RUNNER_OS" == Windows ]]; then
+          python3 -m zipfile -e "$download_dir/ghidra.zip" "$download_dir/distribution"
+        else
+          unzip -q "$download_dir/ghidra.zip" -d "$download_dir/distribution"
+        fi
+        ghidra_dir="$download_dir/distribution/ghidra_${GHIDRA_VERSION}_PUBLIC"
+        [[ -f "$ghidra_dir/Ghidra/application.properties" ]]
+        [[ -f "$ghidra_dir/support/buildExtension.gradle" ]]
+        grep -Fxq "application.version=$GHIDRA_VERSION" "$ghidra_dir/Ghidra/application.properties"
+        chmod +x "$ghidra_dir/support/analyzeHeadless" "$ghidra_dir/support/launch.sh"
+        if command -v cygpath >/dev/null 2>&1; then
+          ghidra_dir="$(cygpath -m "$ghidra_dir")"
+        fi
+        echo "GHIDRA_INSTALL_DIR=$ghidra_dir" >>"$GITHUB_ENV"
+    - name: Prepare Ghidra decompiler
+      shell: bash
+      env:
+        GHIDRA_PLATFORM: ${{ inputs.ghidra-platform }}
+      run: |
+        set -euo pipefail
+        tools="$GHIDRA_INSTALL_DIR/Ghidra/Features/Decompiler/os/$GHIDRA_PLATFORM"
+        if [[ "$RUNNER_OS" == Windows ]]; then
+          [[ -f "$tools/decompile.exe" && -f "$tools/sleigh.exe" ]]
+        elif [[ ! -x "$tools/decompile" || ! -x "$tools/sleigh" ]]; then
+          (
+            cd "$GHIDRA_INSTALL_DIR/support/gradle"
+            ./gradlew --no-daemon :Decompiler:buildNatives
+          ) 2>&1 | tee build/compatibility/ghidra-native.log
+          built="$GHIDRA_INSTALL_DIR/Ghidra/Features/Decompiler/build/os/$GHIDRA_PLATFORM"
+          [[ -x "$built/decompile" && -x "$built/sleigh" ]]
+        fi
+    - name: Build and verify native library
+      shell: bash
+      env:
+        PLATFORM: ${{ inputs.platform }}
+        ARCH: ${{ inputs.arch }}
+        LIBRARY: ${{ inputs.library }}
+        CLI: ${{ inputs.cli }}
+      run: |
+        set -euo pipefail
+        cmake -S native -B build/native -DCMAKE_BUILD_TYPE=Release \
+          -DTURBOHEADER_BUILD_JNI=ON -DTURBOHEADER_STRICT_WARNINGS=ON \
+          -DTURBOHEADER_WARNINGS_AS_ERRORS=ON 2>&1 | tee build/compatibility/configure.log
+        cmake --build build/native --config Release --parallel 2 \
+          2>&1 | tee build/compatibility/native.log
+        native_dir=build/native
+        [[ "$RUNNER_OS" != Windows ]] || native_dir=build/native/Release
+        [[ -f "$native_dir/$LIBRARY" && -f "$native_dir/$CLI" ]]
+        mkdir -p "extension-os/$PLATFORM"
+        cp "$native_dir/$LIBRARY" "extension-os/$PLATFORM/"
+        verify=(--library "$native_dir/$LIBRARY" --cli "$native_dir/$CLI"
+                --arch "$ARCH" --platform "$PLATFORM"
+                --provenance build/compatibility/native.json
+                --smoke-header tests/fixtures/sample.h --smoke-offsets tests/fixtures/type_offsets.json)
+        [[ "$RUNNER_OS" != Linux ]] || verify+=(--glibc-max 2.35)
+        python3 tools/verify_native.py "${verify[@]}" \
+          2>&1 | tee build/compatibility/native-verification.log
+    - name: Package and test extension
+      shell: bash
+      run: |
+        set -euo pipefail
+        TURBOHEADER_PREBUILT_OS="$PWD/extension-os" ./gradlew --no-daemon buildExtension \
+          2>&1 | tee build/compatibility/extension-build.log
+        archives=(dist/*.zip)
+        [[ "${#archives[@]}" -eq 1 && -f "${archives[0]}" ]]
+        archive="$PWD/build/compatibility/tested-extension.zip"
+        cp "${archives[0]}" "$archive"
+        python3 tools/verify_extension.py "$archive" \
+          2>&1 | tee build/compatibility/archive-verification.log
+        TURBOHEADER_EXTENSION_ZIP="$archive" TURBOHEADER_TEST_TEMP="$PWD/build/compatibility/projects" \
+          bash tests/test_real_ghidra.sh 2>&1 | tee build/compatibility/headless.log

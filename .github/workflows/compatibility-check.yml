@@ -1,0 +1,182 @@
+name: Ghidra compatibility check
+
+"on":
+  workflow_dispatch:
+    inputs:
+      ghidra_tag:
+        description: "Official Ghidra tag; leave empty for the latest release"
+        required: false
+        default: Ghidra_12.1.3_build
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: compatibility-check-${{ github.ref }}-${{ inputs.ghidra_tag }}
+  cancel-in-progress: false
+
+jobs:
+  discover:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      version: ${{ steps.ghidra.outputs.version }}
+      url: ${{ steps.ghidra.outputs.url }}
+      digest: ${{ steps.ghidra.outputs.digest }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Check validation workflow
+        run: python3 tests/test_compatibility_workflow.py
+      - name: Resolve Ghidra release
+        id: ghidra
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REQUESTED_TAG: ${{ inputs.ghidra_tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          requested_tag="${REQUESTED_TAG:-}"
+          if [[ -n "$requested_tag" ]]; then
+            [[ "$requested_tag" =~ ^Ghidra_[0-9]+\.[0-9]+(\.[0-9]+)?_build$ ]] || {
+              echo "Invalid Ghidra release tag" >&2
+              exit 1
+            }
+            release_json="$(gh api "repos/NationalSecurityAgency/ghidra/releases/tags/$requested_tag")"
+          else
+            release_json="$(gh api repos/NationalSecurityAgency/ghidra/releases/latest)"
+            requested_tag="$(jq -r '.tag_name // empty' <<<"$release_json")"
+          fi
+          [[ "$requested_tag" =~ ^Ghidra_[0-9]+\.[0-9]+(\.[0-9]+)?_build$ ]]
+          [[ "$(jq -r '.tag_name // empty' <<<"$release_json")" == "$requested_tag" ]]
+          version="${requested_tag#Ghidra_}"
+          version="${version%_build}"
+          asset="$(jq -ec --arg prefix "ghidra_${version}_PUBLIC_" '
+            [.assets[]? | select(
+              (.name | startswith($prefix)) and (.name | endswith(".zip"))
+            )] | if length == 1 then .[0] else error("expected one Ghidra ZIP") end
+          ' <<<"$release_json")"
+          name="$(jq -r '.name' <<<"$asset")"
+          url="$(jq -r '.browser_download_url // empty' <<<"$asset")"
+          digest="$(jq -r '.digest // empty' <<<"$asset")"
+          [[ "$name" =~ ^ghidra_[0-9]+\.[0-9]+(\.[0-9]+)?_PUBLIC_[0-9]{8}\.zip$ ]]
+          [[ "$url" == "https://github.com/NationalSecurityAgency/ghidra/releases/download/$requested_tag/$name" ]]
+          [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || {
+            echo "Ghidra asset has no valid SHA-256 digest" >&2
+            exit 1
+          }
+          {
+            echo "version=$version"
+            echo "url=$url"
+            echo "digest=$digest"
+          } >>"$GITHUB_OUTPUT"
+
+  desktop:
+    needs: discover
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: win_x86_64
+            os: windows-2022
+            arch: x86_64
+            ghidra_platform: win_x86_64
+            library: turboheader_il2cpp.dll
+            cli: il2cpp_native_cli.exe
+          - platform: mac_x86_64
+            os: macos-15-intel
+            arch: x86_64
+            ghidra_platform: mac_x86_64
+            library: libturboheader_il2cpp.dylib
+            cli: il2cpp_native_cli
+          - platform: mac_aarch64
+            os: macos-15
+            arch: aarch64
+            ghidra_platform: mac_arm_64
+            library: libturboheader_il2cpp.dylib
+            cli: il2cpp_native_cli
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: ./.github/actions/check-ghidra-platform
+        with:
+          ghidra-version: ${{ needs.discover.outputs.version }}
+          ghidra-url: ${{ needs.discover.outputs.url }}
+          ghidra-digest: ${{ needs.discover.outputs.digest }}
+          platform: ${{ matrix.platform }}
+          arch: ${{ matrix.arch }}
+          ghidra-platform: ${{ matrix.ghidra_platform }}
+          library: ${{ matrix.library }}
+          cli: ${{ matrix.cli }}
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        if: always()
+        with:
+          name: compatibility-${{ needs.discover.outputs.version }}-${{ matrix.platform }}
+          path: |
+            build/compatibility/*.log
+            build/compatibility/*.json
+            build/compatibility/*.zip
+          if-no-files-found: warn
+          retention-days: 7
+
+  linux:
+    needs: discover
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux_x86_64
+            os: ubuntu-24.04
+            arch: x86_64
+            ghidra_platform: linux_x86_64
+          - platform: linux_aarch64
+            os: ubuntu-24.04-arm
+            arch: aarch64
+            ghidra_platform: linux_arm_64
+    runs-on: ${{ matrix.os }}
+    container: ubuntu:22.04
+    steps:
+      - name: Install build dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install --yes --no-install-recommends \
+            build-essential ca-certificates cmake curl findutils git python3 unzip
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: ./.github/actions/check-ghidra-platform
+        with:
+          ghidra-version: ${{ needs.discover.outputs.version }}
+          ghidra-url: ${{ needs.discover.outputs.url }}
+          ghidra-digest: ${{ needs.discover.outputs.digest }}
+          platform: ${{ matrix.platform }}
+          arch: ${{ matrix.arch }}
+          ghidra-platform: ${{ matrix.ghidra_platform }}
+          library: libturboheader_il2cpp.so
+          cli: il2cpp_native_cli
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        if: always()
+        with:
+          name: compatibility-${{ needs.discover.outputs.version }}-${{ matrix.platform }}
+          path: |
+            build/compatibility/*.log
+            build/compatibility/*.json
+            build/compatibility/*.zip
+          if-no-files-found: warn
+          retention-days: 7
