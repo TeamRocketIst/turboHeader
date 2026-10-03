@@ -4,8 +4,10 @@ import ghidra.app.decompiler.DecompInterface;
 import ghidra.program.model.listing.Function;
 import ghidra.program.model.listing.Program;
 import ghidra.util.task.TaskMonitor;
+import turboheader.il2cpp.analysis.pipeline.FunctionProofCoordinator;
 
-final class DelegateProofWorker implements DelegateProofCoordinator.Worker {
+final class DelegateProofWorker
+        implements FunctionProofCoordinator.Worker<DelegateProofWorker.FunctionResult> {
     private static final int DECOMPILE_TIMEOUT_SECONDS = 30;
 
     private final DecompInterface decompiler = new DecompInterface();
@@ -34,22 +36,20 @@ final class DelegateProofWorker implements DelegateProofCoordinator.Worker {
     }
 
     @Override
-    public DelegateProofCoordinator.FunctionResult analyze(Function function,
-            TaskMonitor monitor) throws Exception {
+    public FunctionResult analyze(Function function, TaskMonitor monitor) throws Exception {
         monitor.checkCancelled();
         long started = System.nanoTime();
         var result = decompiler.decompileFunction(function, DECOMPILE_TIMEOUT_SECONDS, monitor);
         long decompilationNanos = System.nanoTime() - started;
         monitor.checkCancelled();
         if (!result.decompileCompleted() || result.getHighFunction() == null) {
-            return new DelegateProofCoordinator.FunctionResult(null, decompilationNanos, 0);
+            return new FunctionResult(null, decompilationNanos, 0);
         }
         started = System.nanoTime();
         var resolved = resolver.resolve(result.getHighFunction());
         long resolutionNanos = System.nanoTime() - started;
         monitor.checkCancelled();
-        return new DelegateProofCoordinator.FunctionResult(
-                resolved, decompilationNanos, resolutionNanos);
+        return new FunctionResult(resolved, decompilationNanos, resolutionNanos);
     }
 
     @Override
@@ -59,6 +59,16 @@ final class DelegateProofWorker implements DelegateProofCoordinator.Worker {
         }
         finally {
             decompiler.dispose();
+        }
+    }
+
+    record FunctionResult(GhidraPcodeDelegateCallResolver.Result resolved,
+            long decompilationNanos, long resolutionNanos) {
+        FunctionResult {
+            if (decompilationNanos < 0 || resolutionNanos < 0 ||
+                    (resolved == null && resolutionNanos != 0)) {
+                throw new IllegalArgumentException("invalid delegate function timing");
+            }
         }
     }
 }

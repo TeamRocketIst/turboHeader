@@ -1,4 +1,4 @@
-package turboheader.il2cpp.analysis.delegatecall;
+package turboheader.il2cpp.analysis.pipeline;
 
 import java.lang.reflect.Proxy;
 import java.util.ArrayList;
@@ -14,7 +14,7 @@ import ghidra.util.task.CancelledListener;
 import ghidra.util.task.TaskMonitor;
 import ghidra.util.task.TaskMonitorAdapter;
 
-public final class DelegateProofCoordinatorTest {
+public final class FunctionProofCoordinatorTest {
     public static void main(String[] args) throws Exception {
         orderedLanes(1, 12);
         orderedLanes(2, 12);
@@ -30,8 +30,10 @@ public final class DelegateProofCoordinatorTest {
             cancellationDrainsWorkers(workers, true);
             closeFailure(workers);
         }
-        overlappingTimings();
-        System.out.println("DelegateProofCoordinatorTest: 18 cases passed");
+        nullResults();
+        inputSnapshot();
+        workerError();
+        System.out.println("FunctionProofCoordinatorTest: 20 cases passed");
     }
 
     private static void orderedLanes(int workers, int count) throws Exception {
@@ -43,15 +45,14 @@ public final class DelegateProofCoordinatorTest {
         for (int lane = 0; lane < lanes; lane++) {
             closing[lane] = new CountDownLatch(1);
         }
-        var results = DelegateProofCoordinator.analyze(functions, workers, TaskMonitor.DUMMY,
+        var results = FunctionProofCoordinator.analyze(functions, workers, TaskMonitor.DUMMY,
                 lane -> {
                     opened.incrementAndGet();
                     Thread owner = Thread.currentThread();
-                    return new DelegateProofCoordinator.Worker() {
+                    return new FunctionProofCoordinator.Worker<Integer>() {
                         private int next = lane;
 
-                        public DelegateProofCoordinator.FunctionResult analyze(
-                                Function function, TaskMonitor monitor) {
+                        public Integer analyze(Function function, TaskMonitor monitor) {
                             require(Thread.currentThread() == owner, "worker changed threads");
                             require(function == functions.get(next), "round-robin order differs");
                             next += lanes;
@@ -76,18 +77,18 @@ public final class DelegateProofCoordinatorTest {
     }
 
     private static void invalidRequests() throws Exception {
-        DelegateProofCoordinator.WorkerFactory forbidden = lane -> {
+        FunctionProofCoordinator.WorkerFactory<Integer> forbidden = lane -> {
             throw new AssertionError("unexpected worker");
         };
         for (int workers : new int[] { -1, 0, 9, Integer.MAX_VALUE }) {
-            expect(IllegalArgumentException.class, () -> DelegateProofCoordinator.analyze(
+            expect(IllegalArgumentException.class, () -> FunctionProofCoordinator.analyze(
                     functions(1), workers, TaskMonitor.DUMMY, forbidden));
         }
-        require(DelegateProofCoordinator.analyze(List.of(), 4, TaskMonitor.DUMMY,
+        require(FunctionProofCoordinator.analyze(List.of(), 4, TaskMonitor.DUMMY,
                 forbidden).isEmpty(), "empty input opened workers");
         var cancelled = new TaskMonitorAdapter(true);
         cancelled.cancel();
-        expect(CancelledException.class, () -> DelegateProofCoordinator.analyze(
+        expect(CancelledException.class, () -> FunctionProofCoordinator.analyze(
                 functions(1), 1, cancelled, forbidden));
         var cancelledOnRegistration = new TaskMonitorAdapter(true) {
             public void addCancelledListener(CancelledListener listener) {
@@ -95,7 +96,7 @@ public final class DelegateProofCoordinatorTest {
                 super.addCancelledListener(listener);
             }
         };
-        expect(CancelledException.class, () -> DelegateProofCoordinator.analyze(
+        expect(CancelledException.class, () -> FunctionProofCoordinator.analyze(
                 functions(1), 1, cancelledOnRegistration, forbidden));
     }
 
@@ -105,14 +106,13 @@ public final class DelegateProofCoordinatorTest {
         var parent = new TaskMonitorAdapter(true);
         var failure = new IllegalStateException("synthetic failure");
         Throwable thrown = expect(IllegalStateException.class,
-                () -> DelegateProofCoordinator.analyze(functions(workers), workers, parent, lane -> {
+                () -> FunctionProofCoordinator.analyze(functions(workers), workers, parent, lane -> {
                     if (lane == 0 && setupFailure) {
                         await(peerStarted);
                         throw failure;
                     }
-                    return new DelegateProofCoordinator.Worker() {
-                        public DelegateProofCoordinator.FunctionResult analyze(
-                                Function function, TaskMonitor monitor) throws Exception {
+                    return new FunctionProofCoordinator.Worker<Integer>() {
+                        public Integer analyze(Function function, TaskMonitor monitor) throws Exception {
                             if (lane == 0) {
                                 await(peerStarted);
                                 throw failure;
@@ -142,17 +142,16 @@ public final class DelegateProofCoordinatorTest {
         var interrupted = new AtomicReference<Boolean>(false);
         Thread caller = new Thread(() -> {
             try {
-                DelegateProofCoordinator.analyze(functions(workers), workers, parent, lane ->
-                        new DelegateProofCoordinator.Worker() {
-                            public DelegateProofCoordinator.FunctionResult analyze(
-                                    Function function, TaskMonitor monitor) throws Exception {
+                FunctionProofCoordinator.analyze(functions(workers), workers, parent, lane ->
+                        new FunctionProofCoordinator.Worker<Integer>() {
+                            public Integer analyze(Function function, TaskMonitor monitor) throws Exception {
                                 waitForCancellation(monitor, started);
                                 return result(lane);
                             }
 
                             public void close() {
                                 closing.countDown();
-                                // Native cleanup must finish even after Future.cancel(true).
+                                // Cleanup must finish even after Future.cancel(true).
                                 awaitCleanup(releaseClose);
                                 closed.incrementAndGet();
                             }
@@ -163,7 +162,7 @@ public final class DelegateProofCoordinatorTest {
                 failure.set(thrown);
                 interrupted.set(Thread.currentThread().isInterrupted());
             }
-        }, "delegate-test-caller");
+        }, "proof-test-caller");
         caller.start();
         try {
             await(started);
@@ -195,10 +194,10 @@ public final class DelegateProofCoordinatorTest {
     private static void closeFailure(int workers) throws Exception {
         var closed = new AtomicInteger();
         var started = new CountDownLatch(workers);
-        expect(IllegalStateException.class, () -> DelegateProofCoordinator.analyze(
-                functions(workers), workers, TaskMonitor.DUMMY, lane -> new DelegateProofCoordinator.Worker() {
-                    public DelegateProofCoordinator.FunctionResult analyze(
-                            Function function, TaskMonitor monitor) throws Exception {
+        expect(IllegalStateException.class, () -> FunctionProofCoordinator.analyze(
+                functions(workers), workers, TaskMonitor.DUMMY,
+                lane -> new FunctionProofCoordinator.Worker<Integer>() {
+                    public Integer analyze(Function function, TaskMonitor monitor) throws Exception {
                         started.countDown();
                         await(started);
                         return result(lane);
@@ -212,28 +211,74 @@ public final class DelegateProofCoordinatorTest {
         require(closed.get() == workers, "failing workers were not closed");
     }
 
-    private static void overlappingTimings() throws Exception {
-        var timing = new Il2CppDelegateCallAnalyzer.PhaseTiming(1, 2, 100, 10, 30);
-        require(timing.wallNanos() == 33 && timing.measuredNanos() == 113,
-                "wall time includes overlapping work");
-        new Il2CppDelegateCallAnalyzer.AnalysisStats(Il2CppDelegateCallAnalyzer.Outcome.COMPLETE,
-                0, 0, 0, 0, 0, 0, 0, DelegateCallRejectionCounts.none(),
-                List.of(), List.of(), timing, 40);
-        expect(IllegalArgumentException.class,
-                () -> new Il2CppDelegateCallAnalyzer.PhaseTiming(0, 0, 0, 0, -1));
-        expect(IllegalArgumentException.class,
-                () -> new DelegateProofCoordinator.FunctionResult(null, -1, 0));
-        expect(IllegalArgumentException.class,
-                () -> new DelegateProofCoordinator.FunctionResult(null, 1, 1));
-        expect(ArithmeticException.class,
-                () -> new Il2CppDelegateCallAnalyzer.PhaseTiming(
-                        Long.MAX_VALUE, 1, 0, 0, 0).wallNanos());
+    private static Integer result(int index) {
+        return index;
     }
 
-    private static DelegateProofCoordinator.FunctionResult result(int index) {
-        var resolved = index == 3 ? null :
-                new GhidraPcodeDelegateCallResolver.Result(index, 0, 0, List.of());
-        return new DelegateProofCoordinator.FunctionResult(resolved, index, 0);
+    private static void nullResults() throws Exception {
+        for (int workers : new int[] { 1, 2 }) {
+            var closed = new AtomicInteger();
+            expect(NullPointerException.class, () -> FunctionProofCoordinator.analyze(
+                    functions(2), workers, TaskMonitor.DUMMY, lane -> null));
+            expect(NullPointerException.class, () -> FunctionProofCoordinator.analyze(
+                    functions(2), workers, TaskMonitor.DUMMY,
+                    lane -> new FunctionProofCoordinator.Worker<Integer>() {
+                        public Integer analyze(Function function, TaskMonitor monitor) {
+                            return null;
+                        }
+
+                        public void close() {
+                            closed.incrementAndGet();
+                        }
+                    }));
+            require(closed.get() > 0, "null result escaped worker cleanup");
+        }
+    }
+
+    private static void inputSnapshot() throws Exception {
+        var input = new ArrayList<>(functions(2));
+        var listenerCount = new AtomicInteger();
+        var monitor = new TaskMonitorAdapter(true) {
+            public void addCancelledListener(CancelledListener listener) {
+                listenerCount.incrementAndGet();
+                super.addCancelledListener(listener);
+            }
+
+            public void removeCancelledListener(CancelledListener listener) {
+                super.removeCancelledListener(listener);
+                listenerCount.decrementAndGet();
+            }
+        };
+        var results = FunctionProofCoordinator.analyze(input, 1, monitor, lane -> {
+            input.clear();
+            return new FunctionProofCoordinator.Worker<String>() {
+                public String analyze(Function function, TaskMonitor taskMonitor) {
+                    return function.getName();
+                }
+
+                public void close() {
+                }
+            };
+        });
+        require(results.equals(List.of("0", "1")), "input mutation changed planned functions");
+        require(listenerCount.get() == 0, "cancellation listener was not removed");
+    }
+
+    private static void workerError() throws Exception {
+        var closed = new AtomicInteger();
+        var failure = new AssertionError("synthetic worker error");
+        Throwable thrown = expect(AssertionError.class, () -> FunctionProofCoordinator.analyze(
+                functions(2), 2, TaskMonitor.DUMMY,
+                lane -> new FunctionProofCoordinator.Worker<Integer>() {
+                    public Integer analyze(Function function, TaskMonitor monitor) {
+                        throw failure;
+                    }
+
+                    public void close() {
+                        closed.incrementAndGet();
+                    }
+                }));
+        require(thrown == failure && closed.get() > 0, "worker error lost cleanup or identity");
     }
 
     private static List<Function> functions(int count) {

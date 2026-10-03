@@ -23,5 +23,7 @@ if command -v cygpath >/dev/null 2>&1; then
 fi
 javac --release 21 -proc:none -cp "$DELEGATE_CLASSPATH" -d "$JAVA_BUILD" \
   -sourcepath "$JAVA_ROOT/src/main/java" \
-  "$JAVA_ROOT/tests/java/turboheader/il2cpp/analysis/delegatecall/DelegateProofCoordinatorTest.java"
-java -cp "$DELEGATE_CLASSPATH" turboheader.il2cpp.analysis.delegatecall.DelegateProofCoordinatorTest
+  "$JAVA_ROOT/tests/java/turboheader/il2cpp/analysis/pipeline/FunctionProofCoordinatorTest.java" \
+  "$JAVA_ROOT/tests/java/turboheader/il2cpp/analysis/delegatecall/DelegateProofWorkerTest.java"
+java -cp "$DELEGATE_CLASSPATH" turboheader.il2cpp.analysis.pipeline.FunctionProofCoordinatorTest
+java -cp "$DELEGATE_CLASSPATH" turboheader.il2cpp.analysis.delegatecall.DelegateProofWorkerTest

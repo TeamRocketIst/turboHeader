@@ -12,6 +12,7 @@ import ghidra.program.model.address.Address;
 import ghidra.program.model.listing.Function;
 import ghidra.program.model.listing.Program;
 import ghidra.util.task.TaskMonitor;
+import turboheader.il2cpp.analysis.pipeline.FunctionProofCoordinator;
 
 /** Read-only delegate-call proof over typed P-code. */
 public final class Il2CppDelegateCallAnalyzer {
@@ -29,7 +30,7 @@ public final class Il2CppDelegateCallAnalyzer {
     public static AnalysisStats analyze(Program program, List<Function> selectedFunctions,
             Optional<Il2CppDelegatePrototypeCatalog> prototypes, int workers,
             TaskMonitor taskMonitor) throws Exception {
-        DelegateProofCoordinator.validateWorkers(workers);
+        FunctionProofCoordinator.validateWorkers(workers);
         Objects.requireNonNull(program, "program");
         Objects.requireNonNull(selectedFunctions, "selectedFunctions");
         Objects.requireNonNull(prototypes, "prototypes");
@@ -60,7 +61,7 @@ public final class Il2CppDelegateCallAnalyzer {
 
         long modificationNumber = program.getModificationNumber();
         long proofStarted = System.nanoTime();
-        var results = DelegateProofCoordinator.analyze(candidates, workers, monitor,
+        var results = FunctionProofCoordinator.analyze(candidates, workers, monitor,
                 lane -> new DelegateProofWorker(program,
                         layout.orElseThrow(), prototypes.orElseThrow()));
         long proofWallNanos = System.nanoTime() - proofStarted;
