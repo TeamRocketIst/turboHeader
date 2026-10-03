@@ -10,7 +10,7 @@ PROPERTIES = ROOT / "extension.properties"
 REAL_GHIDRA_TEST = ROOT / "tests/test_real_ghidra.sh"
 
 
-def main() -> None:
+def check_workflow() -> None:
     text = WORKFLOW.read_text(encoding="utf-8")
     required = (
         'cron: "17 6 * * 1"',
@@ -36,7 +36,11 @@ def main() -> None:
         'REQUESTED_TAG: ${{ inputs.ghidra_tag }}',
         'repos/NationalSecurityAgency/ghidra/releases/tags/$requested_tag',
         "repos/NationalSecurityAgency/ghidra/releases/latest",
-        'if published="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/$release_tag" 2>/dev/null)"; then',
+        'published="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/$release_tag")"',
+        'repos/${GITHUB_REPOSITORY}/releases/latest',
+        "Select released TurboHeader source",
+        "python3 tests/test_weekly_release_source.py",
+        "ref: ${{ needs.discover.outputs.source_sha }}",
         ".assets[]?.name // empty",
         "ghidra_matrix",
         "fromJSON(needs.discover.outputs.ghidra_matrix)",
@@ -69,14 +73,12 @@ def main() -> None:
         "sha256sum *.zip > SHA256SUMS",
         'manual_notes=".github/release-notes/v${EXTENSION_VERSION}.md"',
         'cat "$manual_notes" >>"$notes"',
-        "gh release create",
         "gh release upload",
         "gh release edit",
         "gh release download",
         "Preserve existing compatibility archives",
         "cp --no-clobber",
         "--clobber",
-        "--latest",
         "GH_REPO: ${{ github.repository }}",
     )
     missing = [value for value in required if value not in text]
@@ -87,8 +89,12 @@ def main() -> None:
         raise AssertionError("release workflow must define exactly five native platforms")
     if 'releases/tags/$release_tag" 2>/dev/null || true' in text:
         raise AssertionError("a missing aggregate release must not leave an API error body to parse")
-    if 'release_tag="v${extension_version}"' not in text:
-        raise AssertionError("release tag must identify TurboHeader independently of Ghidra")
+    if 'release_tag="$(jq -r \'.tag_name\' <<<"$published")"' not in text:
+        raise AssertionError("release tag must come from the latest stable TurboHeader release")
+    if text.count("ref: ${{ needs.discover.outputs.source_sha }}") != 6:
+        raise AssertionError("every test, build and publish job must use the released commit")
+    if "gh release create" in text or "$GITHUB_SHA" in text or "--latest" in text:
+        raise AssertionError("compatibility builds must not create releases or promote a different version")
     if 'release_tag="v${extension_version}-ghidra-' in text:
         raise AssertionError("release tag must not encode a Ghidra version")
     if text.count("fromJSON(needs.discover.outputs.ghidra_matrix)") != 2:
@@ -123,12 +129,6 @@ def main() -> None:
     if checkout < 0 or checkout > download:
         raise AssertionError("the publish job must check out versioned release notes")
 
-    properties = PROPERTIES.read_text(encoding="utf-8").splitlines()
-    version = next(line.split("=", 1)[1] for line in properties if line.startswith("version="))
-    notes = ROOT / ".github/release-notes" / f"v{version}.md"
-    if not notes.is_file() or not notes.read_text(encoding="utf-8").strip():
-        raise AssertionError(f"release notes are missing for version {version}")
-
     real_ghidra_test = REAL_GHIDRA_TEST.read_text(encoding="utf-8")
     path_rules = (
         '${COMSPEC:-}',
@@ -140,6 +140,15 @@ def main() -> None:
     for required_path_rule in path_rules:
         if required_path_rule not in real_ghidra_test:
             raise AssertionError(f"real-Ghidra test is missing path rule: {required_path_rule}")
+
+
+def main() -> None:
+    check_workflow()
+    properties = PROPERTIES.read_text(encoding="utf-8").splitlines()
+    version = next(line.split("=", 1)[1] for line in properties if line.startswith("version="))
+    notes = ROOT / ".github/release-notes" / f"v{version}.md"
+    if not notes.is_file() or not notes.read_text(encoding="utf-8").strip():
+        raise AssertionError(f"release notes are missing for version {version}")
     print("weekly release workflow checks passed")
 
 

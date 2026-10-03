@@ -27,22 +27,65 @@ jobs:
       extension_version: ${{ steps.release.outputs.extension_version }}
       ghidra_matrix: ${{ steps.release.outputs.ghidra_matrix }}
       release_tag: ${{ steps.release.outputs.release_tag }}
+      source_sha: ${{ steps.source.outputs.source_sha }}
+      release_id: ${{ steps.source.outputs.release_id }}
     steps:
       - uses: actions/checkout@v6
+      - name: Check release-source selection
+        run: python3 tests/test_weekly_release_source.py
+      - name: Select released TurboHeader source
+        id: source
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          published="$(gh api "repos/${GITHUB_REPOSITORY}/releases/latest")"
+          jq -e 'type == "object" and .draft == false and .prerelease == false and
+            (.tag_name | type == "string" and test("^v[0-9]+\\.[0-9]+\\.[0-9]+\\z")) and
+            (.published_at | type == "string" and length > 0) and
+            (.id | type == "number" and . > 0 and . == floor)' <<<"$published" >/dev/null
+          release_tag="$(jq -r '.tag_name' <<<"$published")"
+          [[ "$release_tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
+            echo "Invalid stable TurboHeader release tag: $release_tag" >&2
+            exit 1
+          }
+          release_id="$(jq -r '.id' <<<"$published")"
+          [[ "$release_id" =~ ^[1-9][0-9]*$ ]]
+          git fetch --no-tags origin "refs/tags/$release_tag"
+          source_sha="$(git rev-parse --verify 'FETCH_HEAD^{commit}')"
+          [[ "$source_sha" =~ ^[0-9a-f]{40}$ ]]
+          git checkout --detach "$source_sha"
+          [[ "$(grep -c '^version=' extension.properties)" -eq 1 ]]
+          extension_version="$(sed -n 's/^version=//p' extension.properties)"
+          [[ "$release_tag" == "v${extension_version}" ]] || {
+            echo "Release tag does not match extension.properties" >&2
+            exit 1
+          }
+          [[ -s ".github/release-notes/${release_tag}.md" ]] || {
+            echo "Released source has no release notes for $release_tag" >&2
+            exit 1
+          }
+          echo "Using released TurboHeader $release_tag at $source_sha"
+          {
+            echo "release_tag=$release_tag"
+            echo "release_id=$release_id"
+            echo "extension_version=$extension_version"
+            echo "source_sha=$source_sha"
+          } >>"$GITHUB_OUTPUT"
       - name: Find the Ghidra release
         id: release
         env:
           GH_TOKEN: ${{ github.token }}
           REQUESTED_TAG: ${{ inputs.ghidra_tag }}
+          RELEASE_TAG: ${{ steps.source.outputs.release_tag }}
+          RELEASE_ID: ${{ steps.source.outputs.release_id }}
+          EXTENSION_VERSION: ${{ steps.source.outputs.extension_version }}
         shell: bash
         run: |
           set -euo pipefail
-          extension_version="$(sed -n 's/^version=//p' extension.properties)"
-          [[ -n "$extension_version" ]] || {
-            echo "extension.properties has no version" >&2
-            exit 1
-          }
-          release_tag="v${extension_version}"
+          extension_version="$EXTENSION_VERSION"
+          release_tag="$RELEASE_TAG"
           if [[ -n "${REQUESTED_TAG:-}" ]]; then
             requested_tag="$REQUESTED_TAG"
             [[ "$requested_tag" =~ ^Ghidra_[0-9]+\.[0-9]+(\.[0-9]+)?_build$ ]] || {
@@ -84,20 +127,21 @@ jobs:
             --arg digest "$ghidra_digest" \
             '[{tag:$tag,version:$version,url:$url,digest:$digest}]')"
 
-          build=true
-          if published="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/$release_tag" 2>/dev/null)"; then
-            existing="$(jq -r '.assets[]?.name // empty' <<<"$published")"
-            build=false
-            platforms=(win_x86_64 mac_x86_64 mac_aarch64 linux_x86_64 linux_aarch64)
-            for platform in "${platforms[@]}"; do
-              asset="turboheader-${extension_version}-ghidra-${ghidra_version}-${platform}.zip"
-              if ! grep -Fxq "$asset" <<<"$existing"; then
-                build=true
-              fi
-            done
-            if ! grep -Fxq SHA256SUMS <<<"$existing"; then
+          published="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/$release_tag")"
+          jq -e --arg tag "$release_tag" --argjson id "$RELEASE_ID" '
+            .tag_name == $tag and .id == $id and .draft == false and .prerelease == false and
+            (.assets | type == "array")' <<<"$published" >/dev/null
+          existing="$(jq -r '.assets[]?.name // empty' <<<"$published")"
+          build=false
+          platforms=(win_x86_64 mac_x86_64 mac_aarch64 linux_x86_64 linux_aarch64)
+          for platform in "${platforms[@]}"; do
+            asset="turboheader-${extension_version}-ghidra-${ghidra_version}-${platform}.zip"
+            if ! grep -Fxq "$asset" <<<"$existing"; then
               build=true
             fi
+          done
+          if ! grep -Fxq SHA256SUMS <<<"$existing"; then
+            build=true
           fi
           if [[ "$build" == false ]]; then
             echo "Release $release_tag already contains every $ghidra_version build."
@@ -116,6 +160,8 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.discover.outputs.source_sha }}
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
@@ -129,6 +175,8 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.discover.outputs.source_sha }}
       - name: Install Clang
         run: |
           sudo apt-get update
@@ -152,6 +200,8 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.discover.outputs.source_sha }}
       - name: Install Valgrind
         run: |
           sudo apt-get update
@@ -193,6 +243,8 @@ jobs:
     runs-on: ${{ matrix.target.os }}
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.discover.outputs.source_sha }}
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
@@ -355,6 +407,8 @@ jobs:
           DEBIAN_FRONTEND=noninteractive apt-get install --yes --no-install-recommends \
             build-essential ca-certificates cmake curl findutils git ninja-build python3 unzip
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.discover.outputs.source_sha }}
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
@@ -471,6 +525,8 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.discover.outputs.source_sha }}
       - uses: actions/download-artifact@v6
         with:
           pattern: extension-*
@@ -481,17 +537,27 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           RELEASE_TAG: ${{ needs.discover.outputs.release_tag }}
+          RELEASE_ID: ${{ needs.discover.outputs.release_id }}
+          SOURCE_SHA: ${{ needs.discover.outputs.source_sha }}
         run: |
           set -euo pipefail
-          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
-            mkdir -p existing-assets
-            while IFS= read -r asset; do
-              gh release download "$RELEASE_TAG" --pattern "$asset" --dir existing-assets
-            done < <(gh release view "$RELEASE_TAG" --json assets \
-              --jq '.assets[]?.name | select(endswith(".zip"))')
-            find existing-assets -maxdepth 1 -type f -name '*.zip' \
-              -exec cp --no-clobber {} release-assets/ \;
-          fi
+          published="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/$RELEASE_TAG")"
+          jq -e --arg tag "$RELEASE_TAG" --argjson id "$RELEASE_ID" '
+            .tag_name == $tag and .id == $id and .draft == false and .prerelease == false and
+            (.assets | type == "array")' <<<"$published" >/dev/null
+          git fetch --no-tags origin "refs/tags/$RELEASE_TAG"
+          [[ "$(git rev-parse --verify 'FETCH_HEAD^{commit}')" == "$SOURCE_SHA" ]] || {
+            echo "Release tag moved during the compatibility build" >&2
+            exit 1
+          }
+          mkdir -p existing-assets
+          existing="$(jq -r '.assets[]?.name | select(endswith(".zip"))' <<<"$published")"
+          while IFS= read -r asset; do
+            [[ -n "$asset" ]] || continue
+            gh release download "$RELEASE_TAG" --pattern "$asset" --dir existing-assets
+          done <<<"$existing"
+          find existing-assets -maxdepth 1 -type f -name '*.zip' \
+            -exec cp --no-clobber {} release-assets/ \;
       - name: Create checksums
         working-directory: release-assets
         run: sha256sum *.zip > SHA256SUMS
@@ -501,6 +567,8 @@ jobs:
           GH_REPO: ${{ github.repository }}
           RELEASE_TAG: ${{ needs.discover.outputs.release_tag }}
           EXTENSION_VERSION: ${{ needs.discover.outputs.extension_version }}
+          RELEASE_ID: ${{ needs.discover.outputs.release_id }}
+          SOURCE_SHA: ${{ needs.discover.outputs.source_sha }}
         run: |
           set -euo pipefail
           manual_notes=".github/release-notes/v${EXTENSION_VERSION}.md"
@@ -531,19 +599,17 @@ jobs:
 
           EOF
           cat "$manual_notes" >>"$notes"
-          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
-            gh release upload "$RELEASE_TAG" --clobber \
-              release-assets/*.zip release-assets/SHA256SUMS
-            gh release edit "$RELEASE_TAG" \
-              --title "TurboHeader $EXTENSION_VERSION" \
-              --notes-file "$notes" \
-              --latest
-          else
-            gh release create "$RELEASE_TAG" \
-              --target "$GITHUB_SHA" \
-              --title "TurboHeader $EXTENSION_VERSION" \
-              --generate-notes \
-              --notes-file "$notes" \
-              --latest \
-              release-assets/*.zip release-assets/SHA256SUMS
-          fi
+          published="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/$RELEASE_TAG")"
+          jq -e --arg tag "$RELEASE_TAG" --argjson id "$RELEASE_ID" '
+            .tag_name == $tag and .id == $id and .draft == false and .prerelease == false
+          ' <<<"$published" >/dev/null
+          git fetch --no-tags origin "refs/tags/$RELEASE_TAG"
+          [[ "$(git rev-parse --verify 'FETCH_HEAD^{commit}')" == "$SOURCE_SHA" ]] || {
+            echo "Release tag moved during the compatibility build" >&2
+            exit 1
+          }
+          gh release upload "$RELEASE_TAG" --clobber \
+            release-assets/*.zip release-assets/SHA256SUMS
+          gh release edit "$RELEASE_TAG" \
+            --title "TurboHeader $EXTENSION_VERSION" \
+            --notes-file "$notes"
