@@ -81,9 +81,10 @@ public final class Il2CppExportPipeline {
                 after.helpers().renamed(), after.helpers().typed(),
                 after.helpers().architectureProofSeconds(), after.elapsedSeconds()));
         output.accept(String.format(Locale.ROOT,
-                "TurboHeader interface calls: status=%s, candidates=%d, prefiltered=%d, " +
+                "TurboHeader interface calls: worker-limit=%d, status=%s, candidates=%d, prefiltered=%d, " +
                 "associated=%d/%d, " +
                 "proven=%d, published=%d, rejected=%s, total=%.3fs.",
+                Il2CppDecompilationPolicy.proofWorkers(request.decompileJobs()),
                 after.interfaceCalls().outcome(), after.interfaceCalls().candidateFunctions(),
                 after.interfaceCalls().prefilteredFunctions(),
                 after.interfaceCalls().associatedCalls(), after.interfaceCalls().helperCalls(),
@@ -184,11 +185,13 @@ public final class Il2CppExportPipeline {
             Consumer<String> output) {
         var calls = after.interfaceCalls();
         var timing = calls.timing();
-        long otherNanos = Math.max(0, calls.elapsedNanos() - timing.measuredNanos());
+        long otherNanos = calls.elapsedNanos() - timing.wallNanos();
         output.accept(String.format(Locale.ROOT,
                 "TurboHeader interface timing: candidate-scan=%.3fs, typeinfo=%.3fs, " +
-                "decompile=%.3fs, resolve=%.3fs, other=%.3fs, publish=%.3fs.",
+                "worker-wall=%.3fs, decompile-work=%.3fs, resolve-work=%.3fs, " +
+                "other=%.3fs, publish=%.3fs.",
                 timing.candidateSelectionSeconds(), timing.typeInfoSeconds(),
+                timing.proofWallSeconds(),
                 timing.decompilationSeconds(), timing.resolutionSeconds(),
                 seconds(otherNanos), after.publishedInterfaceCalls().elapsedSeconds()));
     }

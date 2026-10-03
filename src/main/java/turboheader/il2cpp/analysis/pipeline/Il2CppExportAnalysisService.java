@@ -69,7 +69,7 @@ public final class Il2CppExportAnalysisService {
             int decompileJobs, TaskMonitor taskMonitor) throws Exception {
         Objects.requireNonNull(program, "program");
         Objects.requireNonNull(preparation, "preparation");
-        int delegateWorkers = Il2CppDecompilationPolicy.delegateWorkers(decompileJobs);
+        int proofWorkers = Il2CppDecompilationPolicy.proofWorkers(decompileJobs);
         TaskMonitor monitor = taskMonitor == null ? TaskMonitor.DUMMY : taskMonitor;
         long started = System.nanoTime();
 
@@ -86,7 +86,7 @@ public final class Il2CppExportAnalysisService {
         var helpers = new Il2CppExportedHelperAnalyzer(program, functions, monitor).analyze();
         monitor.checkCancelled();
         var interfaceCalls = Il2CppInterfaceCallAnalyzer.analyze(
-                program, functions, helpers.anchors(), monitor);
+                program, functions, helpers.anchors(), proofWorkers, monitor);
         monitor.checkCancelled();
         var sharedGenericCatalog = Il2CppSharedGenericCallStore.read(program);
         var referenceGenericCatalog = Il2CppReferenceGenericCallStore.read(program);
@@ -98,7 +98,7 @@ public final class Il2CppExportAnalysisService {
                 program, sharedGenericCalls.proofs(), monitor);
         monitor.checkCancelled();
         var delegateCalls = Il2CppDelegateCallAnalyzer.analyze(
-                program, functions, delegatePrototypes, delegateWorkers, monitor);
+                program, functions, delegatePrototypes, proofWorkers, monitor);
         monitor.checkCancelled();
         var publishedInterfaceCalls = Il2CppInterfaceCallPublisher.publish(
                 program, interfaceCalls.proofs(), monitor);

@@ -149,6 +149,12 @@ public class VerifyTurboHeaderInterfaceDispatch extends GhidraScript {
                 "interface-call prefilter statistics differ: " + prefilter);
         require(prefilter.provenCalls() == 1,
                 "interface-call prefilter dropped the proven thunk caller");
+        verifyWorkerParity(List.of(function, canonicalCaller, factoryCaller, function),
+                Map.of(
+                        Il2CppHelperKind.INTERFACE_INVOKE_LOOKUP,
+                        currentProgram.getImageBase().add(helperOffset),
+                        Il2CppHelperKind.OBJECT_NEW, objectNewAnchor),
+                prefilter);
         println("TurboHeader interface-call prefilter verification passed");
 
         Il2CppProgramFacts.replaceManagedMethodOffsets(currentProgram,
@@ -164,7 +170,7 @@ public class VerifyTurboHeaderInterfaceDispatch extends GhidraScript {
                 List.of(preparedClass), List.of(ready), 1, 0, 0);
 
         var after = Il2CppExportAnalysisService.analyzeAfterPreparation(
-                currentProgram, preparation, monitor);
+                currentProgram, preparation, 8, monitor);
         require(after.delegatePrototypes().orElseThrow().size() == 1 &&
                 after.delegatePrototypes().orElseThrow().forTypeId(7).isPresent(),
                 "delegate prototype catalogue was not loaded during export analysis");
@@ -223,7 +229,7 @@ public class VerifyTurboHeaderInterfaceDispatch extends GhidraScript {
                 .sum();
         require(calls.timing().decompilationNanos() == measuredDecompilation &&
                 calls.timing().resolutionNanos() == measuredResolution &&
-                calls.timing().measuredNanos() <= calls.elapsedNanos(),
+                calls.timing().wallNanos() <= calls.elapsedNanos(),
                 "interface-call phase timing differs");
         require(calls.rejections().total() == 0 &&
                 calls.rejections().summary().equals("none") &&
@@ -256,6 +262,56 @@ public class VerifyTurboHeaderInterfaceDispatch extends GhidraScript {
         println("TurboHeader interface-dispatch integration verification passed");
         println("TurboHeader interface-call P-code proof verification passed");
         println("TurboHeader interface-call override verification passed");
+    }
+
+    private void verifyWorkerParity(List<Function> functions,
+            Map<Il2CppHelperKind, Address> anchors,
+            Il2CppInterfaceCallAnalyzer.AnalysisStats expected) throws Exception {
+        for (int workers : new int[] { 1, 2, 4, 8 }) {
+            long before = currentProgram.getModificationNumber();
+            var actual = Il2CppInterfaceCallAnalyzer.analyze(
+                    currentProgram, functions, anchors, workers, monitor);
+            require(currentProgram.getModificationNumber() == before,
+                    "interface worker proof modified the program");
+            require(actual.outcome() == expected.outcome() &&
+                    actual.candidateFunctions() == expected.candidateFunctions() &&
+                    actual.prefilteredFunctions() == expected.prefilteredFunctions() &&
+                    actual.completedFunctions() == expected.completedFunctions() &&
+                    actual.failedFunctions() == expected.failedFunctions() &&
+                    actual.helperCalls() == expected.helperCalls() &&
+                    actual.associatedCalls() == expected.associatedCalls() &&
+                    actual.conflictingCallsites() == expected.conflictingCallsites() &&
+                    actual.proofs().equals(expected.proofs()) &&
+                    actual.rejections().equals(expected.rejections()) &&
+                    actual.rejectionSamples().equals(expected.rejectionSamples()),
+                    "interface worker proof differs for workers=" + workers);
+            require(actual.timing().wallNanos() <= actual.elapsedNanos() &&
+                    actual.functionTimings().size() == expected.functionTimings().size(),
+                    "interface worker timing differs");
+            for (int index = 0; index < actual.functionTimings().size(); index++) {
+                var left = expected.functionTimings().get(index);
+                var right = actual.functionTimings().get(index);
+                require(left.entry().equals(right.entry()) &&
+                        left.completed() == right.completed() &&
+                        left.helperCalls() == right.helperCalls() &&
+                        left.associatedCalls() == right.associatedCalls(),
+                        "interface worker result order differs");
+            }
+        }
+        long before = currentProgram.getModificationNumber();
+        var missing = Il2CppInterfaceCallAnalyzer.analyze(
+                currentProgram, functions, Map.of(), 8, monitor);
+        require(missing.outcome() == Il2CppInterfaceCallAnalyzer.Outcome.MISSING_HELPERS &&
+                missing.proofs().isEmpty() && currentProgram.getModificationNumber() == before,
+                "missing helper analysis did not remain read-only and unresolved");
+        var empty = Il2CppInterfaceCallAnalyzer.analyze(
+                currentProgram, List.of(), anchors, 8, monitor);
+        require(empty.outcome() == Il2CppInterfaceCallAnalyzer.Outcome.COMPLETE &&
+                empty.candidateFunctions() == 0 && empty.proofs().isEmpty() &&
+                empty.timing().proofWallNanos() == 0 &&
+                currentProgram.getModificationNumber() == before,
+                "empty interface analysis opened workers or changed the program");
+        println("TurboHeader interface worker parity verification passed");
     }
 
     private Function createFixtureFunction(Address address, String description) {

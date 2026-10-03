@@ -10,17 +10,15 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
-import ghidra.app.decompiler.DecompInterface;
 import ghidra.program.model.address.Address;
 import ghidra.program.model.listing.Function;
 import ghidra.program.model.listing.Program;
 import ghidra.util.task.TaskMonitor;
 import turboheader.il2cpp.analysis.helpers.Il2CppHelperKind;
-import turboheader.il2cpp.metadata.Il2CppInterfaceDispatchCatalog;
+import turboheader.il2cpp.analysis.pipeline.FunctionProofCoordinator;
 import turboheader.il2cpp.metadata.Il2CppInterfaceDispatchStore;
 
 public final class Il2CppInterfaceCallAnalyzer {
-    private static final int DECOMPILE_TIMEOUT_SECONDS = 30;
     private static final int MAX_REJECTION_SAMPLES = 4;
 
     private Il2CppInterfaceCallAnalyzer() {
@@ -29,10 +27,18 @@ public final class Il2CppInterfaceCallAnalyzer {
     public static AnalysisStats analyze(Program program, List<Function> selectedFunctions,
             Map<Il2CppHelperKind, Address> helperAddresses, TaskMonitor taskMonitor)
             throws Exception {
+        return analyze(program, selectedFunctions, helperAddresses, 1, taskMonitor);
+    }
+
+    public static AnalysisStats analyze(Program program, List<Function> selectedFunctions,
+            Map<Il2CppHelperKind, Address> helperAddresses, int workers,
+            TaskMonitor taskMonitor) throws Exception {
+        FunctionProofCoordinator.validateWorkers(workers);
         Objects.requireNonNull(program, "program");
         Objects.requireNonNull(selectedFunctions, "selectedFunctions");
         Objects.requireNonNull(helperAddresses, "helperAddresses");
         TaskMonitor monitor = taskMonitor == null ? TaskMonitor.DUMMY : taskMonitor;
+        monitor.checkCancelled();
         long started = System.nanoTime();
 
         var stored = Il2CppInterfaceDispatchStore.read(program);
@@ -56,7 +62,7 @@ public final class Il2CppInterfaceCallAnalyzer {
             return new AnalysisStats(Outcome.COMPLETE, 0,
                     selection.prefilteredFunctions(), 0, 0, 0, 0, 0, 0,
                     InterfaceCallRejectionCounts.none(), List.of(), List.of(),
-                    new PhaseTiming(candidateSelectionNanos, 0, 0, 0), List.of(),
+                    new PhaseTiming(candidateSelectionNanos, 0, 0, 0, 0), List.of(),
                     System.nanoTime() - started);
         }
 
@@ -65,9 +71,11 @@ public final class Il2CppInterfaceCallAnalyzer {
         long typeInfoStarted = System.nanoTime();
         var typeInfoSources = GhidraTypeInfoSources.collect(program, catalog);
         long typeInfoNanos = System.nanoTime() - typeInfoStarted;
-        var resolver = new GhidraPcodeInterfaceCallResolver(
-                interfaceHelper, objectNewTargets, program.getDefaultPointerSize(),
-                typeInfoSources, catalog);
+        long proofStarted = System.nanoTime();
+        var results = FunctionProofCoordinator.analyze(candidates, workers, monitor,
+                lane -> new InterfaceProofWorker(program, interfaceHelper,
+                        objectNewTargets, typeInfoSources, catalog));
+        long proofWallNanos = System.nanoTime() - proofStarted;
         List<ProvenCall> proofs = new ArrayList<>();
         List<InterfaceCallRejectionCounts.Reason> rejectionReasons = new ArrayList<>();
         List<RejectedCall> rejectionSamples = new ArrayList<>();
@@ -81,76 +89,62 @@ public final class Il2CppInterfaceCallAnalyzer {
         long resolutionNanos = 0;
         List<FunctionTiming> functionTimings = new ArrayList<>();
 
-        DecompInterface decompiler = new DecompInterface();
-        try {
-            decompiler.toggleCCode(false);
-            if (!decompiler.openProgram(program)) {
-                throw new IllegalStateException("Ghidra decompiler did not open the program");
+        for (int index = 0; index < candidates.size(); index++) {
+            monitor.checkCancelled();
+            Function candidate = candidates.get(index);
+            var functionResult = results.get(index);
+            long functionDecompileNanos = functionResult.decompilationNanos();
+            long functionResolutionNanos = functionResult.resolutionNanos();
+            decompilationNanos = Math.addExact(decompilationNanos, functionDecompileNanos);
+            resolutionNanos = Math.addExact(resolutionNanos, functionResolutionNanos);
+            var result = functionResult.resolved();
+            if (result == null) {
+                failed++;
+                functionTimings.add(new FunctionTiming(candidate.getEntryPoint(), false,
+                        functionDecompileNanos, 0, 0, 0));
+                continue;
             }
-            if (!decompiler.setSimplificationStyle("normalize")) {
-                throw new IllegalStateException("Ghidra decompiler rejected normalize style");
-            }
-            for (Function candidate : candidates) {
-                monitor.checkCancelled();
-                long decompileStarted = System.nanoTime();
-                var decompiled = decompiler.decompileFunction(
-                        candidate, DECOMPILE_TIMEOUT_SECONDS, monitor);
-                long functionDecompileNanos = System.nanoTime() - decompileStarted;
-                decompilationNanos += functionDecompileNanos;
-                if (!decompiled.decompileCompleted() || decompiled.getHighFunction() == null) {
-                    failed++;
-                    functionTimings.add(new FunctionTiming(candidate.getEntryPoint(), false,
-                            functionDecompileNanos, 0, 0, 0));
+            completed++;
+            functionTimings.add(new FunctionTiming(candidate.getEntryPoint(), true,
+                    functionDecompileNanos, functionResolutionNanos,
+                    result.helperCalls(), result.associatedCalls()));
+            helperCalls += result.helperCalls();
+            associatedCalls += result.associatedCalls();
+            for (var call : result.calls()) {
+                if (call.resolution().proof().isEmpty()) {
+                    var reason = InterfaceCallRejectionCounts.reason(
+                            call.resolution().status());
+                    rejectionReasons.add(reason);
+                    if (rejectionSamples.size() < MAX_REJECTION_SAMPLES) {
+                        Address helperCallsite = imageAddress(
+                                program, call.helperCallAddress(), false);
+                        Address indirectCallsite = imageAddress(
+                                program, call.indirectCallAddress(), false);
+                        if (helperCallsite != null && indirectCallsite != null) {
+                            rejectionSamples.add(new RejectedCall(
+                                    helperCallsite, indirectCallsite, reason));
+                        }
+                    }
                     continue;
                 }
-                completed++;
-                long resolutionStarted = System.nanoTime();
-                var result = resolver.resolve(decompiled.getHighFunction());
-                long functionResolutionNanos = System.nanoTime() - resolutionStarted;
-                resolutionNanos += functionResolutionNanos;
-                functionTimings.add(new FunctionTiming(candidate.getEntryPoint(), true,
-                        functionDecompileNanos, functionResolutionNanos,
-                        result.helperCalls(), result.associatedCalls()));
-                helperCalls += result.helperCalls();
-                associatedCalls += result.associatedCalls();
-                for (var call : result.calls()) {
-                    if (call.resolution().proof().isEmpty()) {
-                        var reason = InterfaceCallRejectionCounts.reason(
-                                call.resolution().status());
-                        rejectionReasons.add(reason);
-                        if (rejectionSamples.size() < MAX_REJECTION_SAMPLES) {
-                            Address helperCallsite = imageAddress(
-                                    program, call.helperCallAddress(), false);
-                            Address indirectCallsite = imageAddress(
-                                    program, call.indirectCallAddress(), false);
-                            if (helperCallsite != null && indirectCallsite != null) {
-                                rejectionSamples.add(new RejectedCall(
-                                        helperCallsite, indirectCallsite, reason));
-                            }
-                        }
-                        continue;
-                    }
-                    var proof = call.resolution().proof().orElseThrow();
-                    Address callsite = imageAddress(
-                            program, proof.indirectCallAddress(), false);
-                    Address target = imageAddress(program, proof.targetAddress(), true);
-                    if (callsite == null || target == null || conflicts.contains(callsite)) {
-                        continue;
-                    }
-                    var proven = new ProvenCall(callsite, target, proof.receiverTypeId(),
-                            proof.interfaceTypeId(), proof.interfaceSlot());
-                    ProvenCall previous = byCallsite.putIfAbsent(callsite, proven);
-                    if (previous != null && !previous.equals(proven)) {
-                        byCallsite.remove(callsite);
-                        conflicts.add(callsite);
-                    }
+                var proof = call.resolution().proof().orElseThrow();
+                Address callsite = imageAddress(
+                        program, proof.indirectCallAddress(), false);
+                Address target = imageAddress(program, proof.targetAddress(), true);
+                if (callsite == null || target == null || conflicts.contains(callsite)) {
+                    continue;
+                }
+                var proven = new ProvenCall(callsite, target, proof.receiverTypeId(),
+                        proof.interfaceTypeId(), proof.interfaceSlot());
+                ProvenCall previous = byCallsite.putIfAbsent(callsite, proven);
+                if (previous != null && !previous.equals(proven)) {
+                    byCallsite.remove(callsite);
+                    conflicts.add(callsite);
                 }
             }
         }
-        finally {
-            decompiler.dispose();
-        }
 
+        monitor.checkCancelled();
         if (program.getModificationNumber() != modificationNumber) {
             throw new IllegalStateException("interface-call proof changed the Ghidra program");
         }
@@ -162,7 +156,7 @@ public final class Il2CppInterfaceCallAnalyzer {
                 helperCalls, associatedCalls, proofs.size(), conflicts.size(),
                 InterfaceCallRejectionCounts.count(rejectionReasons), rejectionSamples, proofs,
                 new PhaseTiming(candidateSelectionNanos, typeInfoNanos,
-                        decompilationNanos, resolutionNanos), functionTimings, elapsedNanos);
+                        decompilationNanos, resolutionNanos, proofWallNanos), functionTimings, elapsedNanos);
     }
 
     private static Set<Address> helperTargets(Program program, Address canonicalAddress) {
@@ -290,21 +284,37 @@ public final class Il2CppInterfaceCallAnalyzer {
     }
 
     public record PhaseTiming(long candidateSelectionNanos, long typeInfoNanos,
-            long decompilationNanos, long resolutionNanos) {
+            long decompilationNanos, long resolutionNanos, long proofWallNanos) {
         public PhaseTiming {
             if (candidateSelectionNanos < 0 || typeInfoNanos < 0 ||
-                    decompilationNanos < 0 || resolutionNanos < 0) {
+                    decompilationNanos < 0 || resolutionNanos < 0 || proofWallNanos < 0) {
                 throw new IllegalArgumentException("interface-call timing must not be negative");
             }
         }
 
-        static PhaseTiming empty() {
-            return new PhaseTiming(0, 0, 0, 0);
+        public PhaseTiming(long candidateSelectionNanos, long typeInfoNanos,
+                long decompilationNanos, long resolutionNanos) {
+            this(candidateSelectionNanos, typeInfoNanos, decompilationNanos, resolutionNanos,
+                    Math.addExact(decompilationNanos, resolutionNanos));
         }
 
+        static PhaseTiming empty() {
+            return new PhaseTiming(0, 0, 0, 0, 0);
+        }
+
+        /** Includes overlapping worker durations, not elapsed time. */
         public long measuredNanos() {
-            return candidateSelectionNanos + typeInfoNanos +
-                    decompilationNanos + resolutionNanos;
+            return Math.addExact(Math.addExact(candidateSelectionNanos, typeInfoNanos),
+                    Math.addExact(decompilationNanos, resolutionNanos));
+        }
+
+        public long wallNanos() {
+            return Math.addExact(Math.addExact(candidateSelectionNanos, typeInfoNanos),
+                    proofWallNanos);
+        }
+
+        public double proofWallSeconds() {
+            return seconds(proofWallNanos);
         }
 
         public double candidateSelectionSeconds() {
@@ -342,7 +352,7 @@ public final class Il2CppInterfaceCallAnalyzer {
         }
 
         public long elapsedNanos() {
-            return decompilationNanos + resolutionNanos;
+            return Math.addExact(decompilationNanos, resolutionNanos);
         }
     }
 
@@ -369,7 +379,7 @@ public final class Il2CppInterfaceCallAnalyzer {
                     rejectionSamples.size() > MAX_REJECTION_SAMPLES ||
                     rejectionSamples.size() > rejections.total() ||
                     functionTimings.size() != completedFunctions + failedFunctions ||
-                    timing.measuredNanos() > elapsedNanos || elapsedNanos < 0) {
+                    timing.wallNanos() > elapsedNanos || elapsedNanos < 0) {
                 throw new IllegalArgumentException("invalid interface-call statistics");
             }
         }

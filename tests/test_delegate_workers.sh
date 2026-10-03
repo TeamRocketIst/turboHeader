@@ -4,7 +4,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 source "$ROOT/tests/lib.sh"
 configure_java_home
 [[ -n "${GHIDRA_INSTALL_DIR:-}" ]] || {
-  printf 'GHIDRA_INSTALL_DIR is required for delegate worker tests\n' >&2
+  printf 'GHIDRA_INSTALL_DIR is required for proof worker tests\n' >&2
   exit 2
 }
 
@@ -24,6 +24,8 @@ fi
 javac --release 21 -proc:none -cp "$DELEGATE_CLASSPATH" -d "$JAVA_BUILD" \
   -sourcepath "$JAVA_ROOT/src/main/java" \
   "$JAVA_ROOT/tests/java/turboheader/il2cpp/analysis/pipeline/FunctionProofCoordinatorTest.java" \
-  "$JAVA_ROOT/tests/java/turboheader/il2cpp/analysis/delegatecall/DelegateProofWorkerTest.java"
+  "$JAVA_ROOT/tests/java/turboheader/il2cpp/analysis/delegatecall/DelegateProofWorkerTest.java" \
+  "$JAVA_ROOT/tests/java/turboheader/il2cpp/analysis/interfacecall/InterfaceProofWorkerTest.java"
 java -cp "$DELEGATE_CLASSPATH" turboheader.il2cpp.analysis.pipeline.FunctionProofCoordinatorTest
 java -cp "$DELEGATE_CLASSPATH" turboheader.il2cpp.analysis.delegatecall.DelegateProofWorkerTest
+java -cp "$DELEGATE_CLASSPATH" turboheader.il2cpp.analysis.interfacecall.InterfaceProofWorkerTest
