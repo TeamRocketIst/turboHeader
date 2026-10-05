@@ -41,7 +41,7 @@ public final class Il2CppReferenceGenericCallStore {
             throws IOException {
         Objects.requireNonNull(program, "program");
         var options = program.getOptions(OPTIONS);
-        if (!options.contains(CATALOGUE)) {
+        if (!RuntimeLayoutStore.allowsProofs(program) || !options.contains(CATALOGUE)) {
             return Optional.empty();
         }
         if (options.getType(CATALOGUE) != OptionType.BYTE_ARRAY_TYPE) {

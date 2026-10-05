@@ -114,6 +114,8 @@ if [[ -n "${GHIDRA_INSTALL_DIR:-}" ]]; then
     "$ROOT/src/main/java/turboheader/il2cpp/HeadlessRequestReader.java" \
     "$ROOT/tests/java/turboheader/il2cpp/HeadlessRequestReaderTest.java" \
     "$ROOT/src/main/java/turboheader/il2cpp/metadata/ScriptMethodReader.java" \
+    "$ROOT/src/main/java/turboheader/il2cpp/metadata/RuntimeLayoutInfo.java" \
+    "$ROOT/tests/java/turboheader/il2cpp/metadata/RuntimeLayoutInfoTest.java" \
     "$ROOT/src/main/java/turboheader/il2cpp/metadata/Il2CppInterfaceDispatchCatalog.java" \
     "$ROOT/src/main/java/turboheader/il2cpp/metadata/Il2CppInterfaceDispatchCodec.java" \
     "$ROOT/src/main/java/turboheader/il2cpp/metadata/Il2CppDelegateSignatureCatalog.java" \
@@ -129,6 +131,7 @@ if [[ -n "${GHIDRA_INSTALL_DIR:-}" ]]; then
     "$ROOT/tests/java/turboheader/il2cpp/metadata/Il2CppDelegateSignatureCatalogTest.java" \
     "$ROOT/tests/java/turboheader/il2cpp/metadata/Il2CppSharedGenericCallCatalogTest.java"
   java -cp "$GSON_JAR:$BUILD/classes" turboheader.il2cpp.HeadlessRequestReaderTest
+  java -cp "$GSON_JAR:$BUILD/classes" turboheader.il2cpp.metadata.RuntimeLayoutInfoTest
   java -cp "$GSON_JAR:$BUILD/classes" turboheader.il2cpp.metadata.ScriptMethodReaderTest \
     ${TURBOHEADER_SCRIPT_CORPUS:+"$TURBOHEADER_SCRIPT_CORPUS"}
   java -cp "$GSON_JAR:$BUILD/classes" \

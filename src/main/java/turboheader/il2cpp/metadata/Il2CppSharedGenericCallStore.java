@@ -39,6 +39,7 @@ public final class Il2CppSharedGenericCallStore {
     public static Optional<Il2CppSharedGenericCallCatalog> read(Program program)
             throws IOException {
         Objects.requireNonNull(program, "program");
+        if (!RuntimeLayoutStore.allowsProofs(program)) return Optional.empty();
         byte[] encoded = program.getOptions(OPTIONS).getByteArray(CATALOGUE, null);
         if (encoded == null) {
             return Optional.empty();

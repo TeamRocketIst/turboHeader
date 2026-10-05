@@ -41,6 +41,7 @@ public final class ScriptMethodReader {
         boolean foundDelegateSignatures = false;
         boolean foundSharedGenericCalls = false;
         boolean foundReferenceGenericCalls = false;
+        Optional<RuntimeLayoutInfo> runtimeLayout = Optional.empty();
         try (JsonReader reader = new JsonReader(Files.newBufferedReader(path, StandardCharsets.UTF_8))) {
             reader.beginObject();
             boolean foundMethods = false;
@@ -50,6 +51,10 @@ public final class ScriptMethodReader {
             while (reader.hasNext()) {
                 String property = reader.nextName();
                 switch (property) {
+                    case "RuntimeLayout" -> {
+                        if (runtimeLayout.isPresent()) throw new IOException("duplicate RuntimeLayout");
+                        runtimeLayout = Optional.of(RuntimeLayoutInfo.read(reader));
+                    }
                     case "ScriptMethod" -> {
                         if (foundMethods || reader.peek() != JsonToken.BEGIN_ARRAY) {
                             throw new IOException("script.json ScriptMethod must be one array");
@@ -185,7 +190,7 @@ public final class ScriptMethodReader {
                 ? Optional.of(List.copyOf(referenceGenericCalls)) : Optional.empty();
         return new ScriptData(List.copyOf(methods), List.copyOf(metadata),
                 List.copyOf(metadataMethods), List.copyOf(strings), dispatch, delegates,
-                sharedGenerics, referenceGenerics);
+                sharedGenerics, referenceGenerics, runtimeLayout);
     }
 
     private static ScriptMethod readMethod(JsonReader reader) throws IOException {
@@ -524,7 +529,26 @@ public final class ScriptMethodReader {
             Optional<List<ScriptInterfaceDispatch>> interfaceDispatch,
             Optional<List<ScriptDelegateSignature>> delegateSignatures,
             Optional<List<ScriptSharedGenericCall>> sharedGenericCalls,
-            Optional<List<Il2CppReferenceGenericCallCatalog.Entry>> referenceGenericCalls) {
+            Optional<List<Il2CppReferenceGenericCallCatalog.Entry>> referenceGenericCalls,
+            Optional<RuntimeLayoutInfo> runtimeLayout) {
+        public ScriptData {
+            if (runtimeLayout.isPresent() && !runtimeLayout.orElseThrow().runtimeFieldsVerified()) {
+                interfaceDispatch = Optional.empty();
+                delegateSignatures = Optional.empty();
+                sharedGenericCalls = Optional.empty();
+                referenceGenericCalls = Optional.empty();
+            }
+        }
+
+        public ScriptData(List<ScriptMethod> methods, List<ScriptMetadata> metadata,
+                List<ScriptMetadataMethod> metadataMethods, List<ScriptString> strings,
+                Optional<List<ScriptInterfaceDispatch>> interfaceDispatch,
+                Optional<List<ScriptDelegateSignature>> delegateSignatures,
+                Optional<List<ScriptSharedGenericCall>> sharedGenericCalls,
+                Optional<List<Il2CppReferenceGenericCallCatalog.Entry>> referenceGenericCalls) {
+            this(methods, metadata, metadataMethods, strings, interfaceDispatch,
+                    delegateSignatures, sharedGenericCalls, referenceGenericCalls, Optional.empty());
+        }
         public ScriptData(List<ScriptMethod> methods, List<ScriptMetadata> metadata,
                 List<ScriptMetadataMethod> metadataMethods, List<ScriptString> strings,
                 Optional<List<ScriptInterfaceDispatch>> interfaceDispatch,

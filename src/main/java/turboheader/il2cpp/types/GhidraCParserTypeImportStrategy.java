@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.function.Consumer;
 
 import ghidra.app.util.cparser.C.CParserUtils;
@@ -14,6 +15,7 @@ import ghidra.program.model.data.DataTypeManager;
 import ghidra.program.model.listing.Program;
 import ghidra.util.task.TaskMonitor;
 import turboheader.il2cpp.Il2CppLayoutPolicy;
+import turboheader.il2cpp.metadata.RuntimeLayoutStore;
 
 /** Imports an IL2CPP header through Ghidra's general-purpose CParser. */
 public final class GhidraCParserTypeImportStrategy implements Il2CppTypeImportStrategy {
@@ -41,6 +43,7 @@ public final class GhidraCParserTypeImportStrategy implements Il2CppTypeImportSt
         }
 
         output.accept("TurboHeader: preparing IL2CPP header for Ghidra CParser...");
+        RuntimeLayoutStore.replace(program, Optional.empty());
         Path temporaryDirectory = Application.getUserTempDirectory().toPath();
         long started = System.nanoTime();
         try (var prepared = CParserHeaderAdapter.prepare(

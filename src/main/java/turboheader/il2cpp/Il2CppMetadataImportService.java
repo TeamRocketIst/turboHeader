@@ -23,6 +23,7 @@ import turboheader.il2cpp.metadata.Il2CppReferenceGenericCallStore;
 import turboheader.il2cpp.metadata.Il2CppSharedGenericCallCatalog;
 import turboheader.il2cpp.metadata.Il2CppSharedGenericCallStore;
 import turboheader.il2cpp.metadata.ScriptMethodReader;
+import turboheader.il2cpp.metadata.RuntimeLayoutStore;
 
 /** Imports script.json annotations and managed method signatures into a program. */
 public final class Il2CppMetadataImportService {
@@ -42,6 +43,10 @@ public final class Il2CppMetadataImportService {
     public void importScript(Path script) throws Exception {
         output.accept("TurboHeader: reading script metadata...");
         var scriptData = ScriptMethodReader.readAll(script);
+        boolean newRuntimeLayout = RuntimeLayoutStore.merge(program, scriptData.runtimeLayout());
+        if (newRuntimeLayout && !RuntimeLayoutStore.allowsProofs(program)) {
+            errors.accept("WARNING: Runtime layout is unverified or has a different pointer size; layout-dependent call proofs are disabled.");
+        }
         var interfaceDispatch = Il2CppInterfaceDispatchCatalog.fromScript(scriptData);
         var delegateSignatures = Il2CppDelegateSignatureCatalog.fromScript(scriptData);
         var sharedGenericCalls = Il2CppSharedGenericCallCatalog.fromScript(scriptData);

@@ -13,6 +13,7 @@ import ghidra.util.task.TaskMonitor;
 import turboheader.il2cpp.analysis.architecture.ArchitectureHelperProof;
 import turboheader.il2cpp.analysis.architecture.Il2CppArchitectureSupport;
 import turboheader.il2cpp.project.Il2CppProgramFacts;
+import turboheader.il2cpp.metadata.RuntimeLayoutStore;
 
 final class GhidraArchitectureHelperAnalyzer {
     private final Program program;
@@ -30,6 +31,7 @@ final class GhidraArchitectureHelperAnalyzer {
 
     AnalysisResult analyze() throws Exception {
         long started = System.nanoTime();
+        if (!RuntimeLayoutStore.allowsProofs(program)) return empty(Outcome.UNVERIFIED_LAYOUT, started);
         var support = Il2CppArchitectureSupport.inspect(program);
         if (support.helperProof().isEmpty()) {
             return empty(Outcome.UNSUPPORTED, started);
@@ -114,6 +116,7 @@ final class GhidraArchitectureHelperAnalyzer {
     enum Outcome {
         COMPLETE,
         UNSUPPORTED,
+        UNVERIFIED_LAYOUT,
         MISSING_MANAGED_METHODS
     }
 

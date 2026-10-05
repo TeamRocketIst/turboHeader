@@ -1,7 +1,9 @@
 package turboheader.il2cpp;
 
 import java.nio.file.Path;
+import java.util.Locale;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.function.Consumer;
 
 import ghidra.program.model.listing.Program;
@@ -10,6 +12,8 @@ import turboheader.il2cpp.model.TypeModel;
 import turboheader.il2cpp.types.GhidraTypeImporter;
 import turboheader.il2cpp.types.Il2CppTypeImportStrategy;
 import turboheader.il2cpp.types.ImportDiagnostics;
+import turboheader.il2cpp.metadata.RuntimeLayoutInfo;
+import turboheader.il2cpp.metadata.RuntimeLayoutStore;
 
 /** Imports a TypeModel produced by the native IL2CPP parser. */
 public final class NativeIl2CppTypeImportStrategy implements Il2CppTypeImportStrategy {
@@ -36,8 +40,14 @@ public final class NativeIl2CppTypeImportStrategy implements Il2CppTypeImportStr
 
         output.accept("TurboHeader: parsing IL2CPP header...");
         long parseStart = System.nanoTime();
+        var runtimeLayout = offsets != null && offsets.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".json")
+                ? RuntimeLayoutInfo.readOffsets(offsets) : Optional.<RuntimeLayoutInfo>empty();
         int nativeApi = NativeParser.nativeApiVersion();
         TypeModel.Model model = NativeParser.parse(header, offsets, pointerSize);
+        RuntimeLayoutStore.replace(program, runtimeLayout);
+        if (!RuntimeLayoutStore.allowsProofs(program)) {
+            errors.accept("WARNING: Runtime layout is unverified or has a different pointer size; layout-dependent call proofs are disabled.");
+        }
         double parseSeconds = (System.nanoTime() - parseStart) / 1_000_000_000.0;
 
         long parsedFields = model.structures().stream().mapToLong(s -> s.fields().size()).sum();

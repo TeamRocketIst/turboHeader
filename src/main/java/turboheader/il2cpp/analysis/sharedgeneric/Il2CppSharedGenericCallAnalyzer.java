@@ -21,6 +21,7 @@ import ghidra.util.task.TaskMonitor;
 import turboheader.il2cpp.metadata.Il2CppSharedGenericCallCatalog;
 import turboheader.il2cpp.metadata.SharedGenericCallSignature;
 import turboheader.il2cpp.metadata.Il2CppReferenceGenericCallCatalog;
+import turboheader.il2cpp.metadata.RuntimeLayoutStore;
 
 public final class Il2CppSharedGenericCallAnalyzer {
     private static final int MAX_BACKWARD_INSTRUCTIONS = 24;
@@ -47,7 +48,8 @@ public final class Il2CppSharedGenericCallAnalyzer {
         long started = System.nanoTime();
 
         String processor = program.getLanguage().getProcessor().toString();
-        if (catalog.isEmpty() && referenceCatalog.isEmpty()) return AnalysisStats.notSupplied(processor);
+        if (!RuntimeLayoutStore.allowsProofs(program) ||
+                (catalog.isEmpty() && referenceCatalog.isEmpty())) return AnalysisStats.notSupplied(processor);
         if (!processor.equalsIgnoreCase("AARCH64")) {
             return AnalysisStats.unsupported(processor, System.nanoTime() - started);
         }

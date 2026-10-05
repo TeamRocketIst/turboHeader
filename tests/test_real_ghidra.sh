@@ -88,6 +88,8 @@ JAVA_TOOL_OPTIONS="${JAVA_TOOL_OPTIONS:+$JAVA_TOOL_OPTIONS }-Dapplication.settin
   -scriptPath "$JAVA_ROOT/ghidra_scripts;$JAVA_ROOT/tests/ghidra_scripts" \
   -postScript ImportIl2CppTypes.java --request "$JAVA_REQUEST" \
   -postScript VerifyTurboHeaderFixture.java \
+  -postScript VerifyTurboHeaderRuntimeLayoutImport.java \
+  "$JAVA_ROOT/tests/fixtures/sample.h" "$JAVA_ROOT/tests/fixtures/type_offsets.json" \
   -postScript VerifyTurboHeaderTransactions.java \
   "$JAVA_ROOT/tests/fixtures/sample.h" "$JAVA_ROOT/tests/fixtures/type_offsets.json" 8 \
   -postScript VerifyTurboHeaderProvenance.java \
@@ -128,12 +130,14 @@ JAVA_TOOL_OPTIONS="${JAVA_TOOL_OPTIONS:+$JAVA_TOOL_OPTIONS }-Dapplication.settin
   -postScript VerifyTurboHeaderAnalysisDependencies.java \
   -postScript VerifyTurboHeaderReferenceGenericCalls.java \
   -postScript VerifyTurboHeaderInstructionEffects.java \
+  -postScript VerifyTurboHeaderRuntimeLayoutStore.java write \
   2>&1 | tee -a "$LOG"
 
 JAVA_TOOL_OPTIONS="${JAVA_TOOL_OPTIONS:+$JAVA_TOOL_OPTIONS }-Dapplication.settingsdir=$JAVA_PROJECT_ROOT/settings -Dapplication.cachedir=$JAVA_PROJECT_ROOT/cache" \
   bash "$HEADLESS" "$JAVA_PROJECT_ROOT" TurboHeaderArm64Fixture \
   -process interface-dispatch.bin -noanalysis \
   -scriptPath "$JAVA_ROOT/tests/ghidra_scripts" \
+  -postScript VerifyTurboHeaderRuntimeLayoutStore.java \
   -postScript VerifyTurboHeaderDelegateCallOverride.java \
   -postScript VerifyTurboHeaderInterfaceDispatchStore.java \
   -postScript VerifyTurboHeaderDelegateSignatureStore.java \
@@ -181,6 +185,9 @@ grep -q 'TurboHeader shared-generic override verification passed' "$LOG"
 grep -q 'TurboHeader analysis dependency verification passed' "$LOG"
 grep -q 'TurboHeader reference-generic proof and publication verification passed' "$LOG"
 grep -q 'TurboHeader instruction effects verification passed' "$LOG"
+grep -q 'TurboHeader runtime layout confidence stored' "$LOG"
+grep -q 'TurboHeader runtime layout import verification passed' "$LOG"
+grep -q 'TurboHeader runtime layout confidence survived project reopen' "$LOG"
 grep -Eq 'TurboHeader export plan: discovered=1, selected=1, scanned=[0-9]+, matched=1, unmatched=0, ambiguous=0, assembly-resolved=0, assembly-mismatches=0, jobs=8\.' "$LOG"
 grep -Eq 'TurboHeader export complete: classes=1, functions=1, failed=0\.' "$LOG"
 grep -Eq 'TurboHeader phase timing: scan=[0-9.]+s, analysis=[0-9.]+s, prepare=[0-9.]+s, decompile=[0-9.]+s, writes=[0-9.]+s, total=[0-9.]+s\.' "$LOG"

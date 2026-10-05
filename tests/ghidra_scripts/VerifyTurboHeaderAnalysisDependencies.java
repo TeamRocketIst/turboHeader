@@ -36,6 +36,8 @@ import turboheader.il2cpp.metadata.Il2CppDelegateSignatureStore;
 import turboheader.il2cpp.metadata.Il2CppSharedGenericCallCatalog;
 import turboheader.il2cpp.metadata.Il2CppSharedGenericCallStore;
 import turboheader.il2cpp.metadata.ScriptMethodReader;
+import turboheader.il2cpp.metadata.RuntimeLayoutInfo;
+import turboheader.il2cpp.metadata.RuntimeLayoutStore;
 
 public class VerifyTurboHeaderAnalysisDependencies extends GhidraScript {
     private static final long CALLER = 0x1000;
@@ -61,10 +63,20 @@ public class VerifyTurboHeaderAnalysisDependencies extends GhidraScript {
             checkFixture(monitor, true, true, false, jobs);
             checkFixture(monitor, true, true, true, jobs);
         }
+        for (String status : List.of("verified", "familyFallback", "legacyCompatibility", "opaque")) {
+            checkFixture(monitor, true, true, false, 8,
+                    Optional.of(new RuntimeLayoutInfo(status, 8, status.equals("verified"), "legacy")));
+        }
     }
 
     private static void checkFixture(TaskMonitor monitor, boolean metadata,
             boolean validProducer, boolean conflict, int jobs) throws Exception {
+        checkFixture(monitor, metadata, validProducer, conflict, jobs, Optional.empty());
+    }
+
+    private static void checkFixture(TaskMonitor monitor, boolean metadata,
+            boolean validProducer, boolean conflict, int jobs,
+            Optional<RuntimeLayoutInfo> runtimeLayout) throws Exception {
         var language = DefaultLanguageService.getLanguageService()
                 .getLanguage(new LanguageID("AARCH64:LE:64:v8A"));
         Object owner = new Object();
@@ -77,6 +89,7 @@ public class VerifyTurboHeaderAnalysisDependencies extends GhidraScript {
             require(baseline.failedFunctions() == 0, "baseline decompiler failed");
             require(baseline.delegateCandidates() == 1, "baseline delegate shape missing");
             require(baseline.provenCalls() == 0, "untyped receiver unexpectedly proved");
+            RuntimeLayoutStore.replace(program, runtimeLayout);
 
             var ready = new Il2CppFunctionPreparationService.PreparedFunction(caller, caller);
             var entry = new Il2CppClassCatalog.ClassEntry("Sample.Game", "Sample.cs",
@@ -116,7 +129,7 @@ public class VerifyTurboHeaderAnalysisDependencies extends GhidraScript {
             }
             var result = Il2CppExportAnalysisService.analyzeAfterPreparation(
                     program, preparation, jobs, monitor);
-            int expected = metadata && validProducer ? 1 : 0;
+            int expected = metadata && validProducer && RuntimeLayoutStore.allowsProofs(program) ? 1 : 0;
             require(result.sharedGenericCalls().provenCalls() == expected,
                     "unexpected producer proof count");
             require(result.publishedSharedGenericCalls().added() == expected,

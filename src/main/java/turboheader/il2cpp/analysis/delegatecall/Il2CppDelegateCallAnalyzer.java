@@ -13,6 +13,7 @@ import ghidra.program.model.listing.Function;
 import ghidra.program.model.listing.Program;
 import ghidra.util.task.TaskMonitor;
 import turboheader.il2cpp.analysis.pipeline.FunctionProofCoordinator;
+import turboheader.il2cpp.metadata.RuntimeLayoutStore;
 
 /** Read-only delegate-call proof over typed P-code. */
 public final class Il2CppDelegateCallAnalyzer {
@@ -37,7 +38,7 @@ public final class Il2CppDelegateCallAnalyzer {
         TaskMonitor monitor = taskMonitor == null ? TaskMonitor.DUMMY : taskMonitor;
         monitor.checkCancelled();
         long started = System.nanoTime();
-        if (prototypes.isEmpty()) {
+        if (prototypes.isEmpty() || !RuntimeLayoutStore.allowsProofs(program)) {
             return empty(Outcome.DISABLED, started);
         }
 
