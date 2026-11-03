@@ -7,6 +7,39 @@ configure_java_home() {
   fi
 }
 
+java_classpath() {
+  local separator=:
+  local windows=false
+  local result=""
+  local entry
+  if [[ "$#" -eq 0 ]]; then
+    printf 'Java classpath requires at least one entry\n' >&2
+    return 1
+  fi
+  if command -v cygpath >/dev/null 2>&1; then
+    separator=';'
+    windows=true
+  fi
+  for entry in "$@"; do
+    if [[ -z "$entry" ]]; then
+      printf 'Java classpath entry is empty\n' >&2
+      return 1
+    fi
+    if [[ "$windows" == true ]]; then
+      entry="$(cygpath -m -- "$entry")" || return
+    fi
+    if [[ -z "$entry" || "$entry" == *"$separator"* ]]; then
+      printf 'Java classpath entry is empty or contains the path-list separator\n' >&2
+      return 1
+    fi
+    if [[ -n "$result" ]]; then
+      result+="$separator"
+    fi
+    result+="$entry"
+  done
+  printf '%s\n' "$result"
+}
+
 find_native_library() {
   local build_dir="$1"
   local candidate

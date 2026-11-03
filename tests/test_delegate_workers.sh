@@ -10,16 +10,17 @@ configure_java_home
 
 BUILD="$(mktemp -d "${TMPDIR:-/tmp}/turboheader-delegate-tests.XXXXXX")"
 trap 'rm -rf "$BUILD"' EXIT
-DELEGATE_CLASSPATH="$BUILD"
+DELEGATE_ENTRIES=("$BUILD")
 while IFS= read -r -d '' jar; do
-  DELEGATE_CLASSPATH="$DELEGATE_CLASSPATH:$jar"
+  DELEGATE_ENTRIES+=("$jar")
 done < <(find "$GHIDRA_INSTALL_DIR/Ghidra" -name '*.jar' -type f -print0)
+DELEGATE_CLASSPATH="$(java_classpath "${DELEGATE_ENTRIES[@]}")"
 JAVA_ROOT="$ROOT"
 JAVA_BUILD="$BUILD"
 if command -v cygpath >/dev/null 2>&1; then
   JAVA_ROOT="$(cygpath -m "$ROOT")"
   JAVA_BUILD="$(cygpath -m "$BUILD")"
-  DELEGATE_CLASSPATH="$(cygpath -wp "$DELEGATE_CLASSPATH")"
+  export MSYS2_ARG_CONV_EXCL='*'
 fi
 javac --release 21 -proc:none -cp "$DELEGATE_CLASSPATH" -d "$JAVA_BUILD" \
   -sourcepath "$JAVA_ROOT/src/main/java" \

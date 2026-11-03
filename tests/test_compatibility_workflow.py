@@ -9,6 +9,7 @@ import shutil
 import stat
 import struct
 import subprocess
+import sys
 import tempfile
 import unittest
 import warnings
@@ -341,6 +342,118 @@ class PackageStepTests(unittest.TestCase):
         self.assertEqual(result.returncode, 31)
         self.assertTrue((self.root / "build/compatibility/tested-extension.zip").is_file())
         self.assertIn("headless fixture", (self.root / "build/compatibility/headless.log").read_text())
+
+
+@unittest.skipUnless(shutil.which("bash"), "bash is required")
+class JavaClasspathTests(unittest.TestCase):
+    def setUp(self):
+        self.folder = tempfile.TemporaryDirectory()
+        self.root = Path(self.folder.name)
+        self.bin = self.root / "bin"
+        self.bin.mkdir()
+        self.calls = self.root / "java-calls.jsonl"
+        self.environment = dict(os.environ, PATH=str(self.bin) + os.pathsep + os.environ["PATH"],
+                                GHIDRA_INSTALL_DIR="D:/SDK Folder",
+                                MOCK_JAVA_CALLS=str(self.calls), MOCK_PYTHON=sys.executable,
+                                MOCK_TOOLS=str(self.root))
+        self.tool("cygpath", """
+import os, sys
+args = sys.argv[1:]
+if not args or args[0] != '-m':
+    raise SystemExit('expected conversion of one path, not a path list')
+path = args[-1]
+if path == os.environ.get('MOCK_CONVERSION_FAILURE'):
+    raise SystemExit(7)
+print(path if len(path) > 2 and path[1] == ':' else 'Z:' + path)
+""")
+        self.tool("find", """
+import os, sys
+paths = os.environ.get('MOCK_JARS', 'D:/SDK Folder/Generic.jar|E:/SDK Folder/gson.jar')
+sys.stdout.buffer.write(b''.join(path.encode() + b'\\0' for path in paths.split('|')))
+""")
+        spy = """
+import json, os, pathlib, sys
+with pathlib.Path(os.environ['MOCK_JAVA_CALLS']).open('a') as stream:
+    stream.write(json.dumps({'tool': pathlib.Path(sys.argv[0]).stem, 'args': sys.argv[1:],
+                             'conversion': os.environ.get('MOCK_PARENT_CONVERSION')}) + '\\n')
+"""
+        self.tool("java", spy)
+        self.tool("javac", spy)
+
+    def tearDown(self):
+        self.folder.cleanup()
+
+    def tool(self, name, body):
+        (self.root / (name + ".py")).write_text(body, encoding="utf-8")
+        path = self.bin / name
+        path.write_text(
+            '#!/usr/bin/env bash\n'
+            'MOCK_PARENT_CONVERSION="${MSYS2_ARG_CONV_EXCL:-}" MSYS2_ARG_CONV_EXCL="*" '
+            '"$MOCK_PYTHON" "$MOCK_TOOLS/' + name + '.py" "$@"\n', encoding="utf-8")
+        path.chmod(0o700)
+
+    def classpath(self, *entries):
+        return subprocess.run(
+            ["bash", "-c", 'source "$1"; shift; java_classpath "$@"', "fixture",
+             str(ROOT / "tests/lib.sh"), *entries], env=self.environment, cwd=self.root,
+            capture_output=True, text=True, timeout=10)
+
+    def run_workers(self):
+        return subprocess.run(["bash", str(ROOT / "tests/test_delegate_workers.sh")],
+                              env=self.environment, cwd=self.root,
+                              capture_output=True, text=True, timeout=10)
+
+    def test_windows_entries_keep_drive_letters_and_spaces(self):
+        result = self.classpath("C:/temp/worker classes", "D:/SDK Folder/Generic.jar",
+                                "E:/SDK Folder/gson.jar")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.strip(),
+                         "C:/temp/worker classes;D:/SDK Folder/Generic.jar;E:/SDK Folder/gson.jar")
+
+    def test_windows_and_posix_paths_are_converted_individually(self):
+        result = self.classpath("/tmp/worker classes", "D:/SDK Folder/Generic.jar")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.strip(), "Z:/tmp/worker classes;D:/SDK Folder/Generic.jar")
+
+    def test_empty_entries_and_embedded_separators_fail(self):
+        for entries in ((), ("",), ("D:/SDK;extra/Generic.jar",)):
+            with self.subTest(entries=entries):
+                result = self.classpath(*entries)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertEqual(result.stdout, "")
+
+    def test_path_text_is_not_executed(self):
+        result = self.classpath("D:/SDK/$(touch injected)/Generic.jar")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("$(touch injected)", result.stdout)
+        self.assertFalse((self.root / "injected").exists())
+
+    def test_worker_compiler_and_all_runtimes_get_the_same_classpath(self):
+        result = self.run_workers()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        calls = [json.loads(line) for line in self.calls.read_text().splitlines()]
+        self.assertEqual([call["tool"] for call in calls], ["javac", "java", "java", "java"])
+        classpaths = [call["args"][call["args"].index("-cp") + 1] for call in calls]
+        self.assertEqual(len(set(classpaths)), 1)
+        entries = classpaths[0].split(";")
+        self.assertEqual(entries[1:], ["D:/SDK Folder/Generic.jar", "E:/SDK Folder/gson.jar"])
+        self.assertRegex(entries[0], r"^[A-Za-z]:/")
+        self.assertTrue(all(call["conversion"] == "*" for call in calls))
+        compiler = calls[0]["args"]
+        self.assertRegex(compiler[compiler.index("-d") + 1], r"^[A-Za-z]:/")
+        self.assertRegex(compiler[compiler.index("-sourcepath") + 1], r"^[A-Za-z]:/")
+
+    def test_conversion_failure_stops_before_compiling(self):
+        self.environment["MOCK_CONVERSION_FAILURE"] = "D:/SDK Folder/Generic.jar"
+        result = self.run_workers()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertFalse(self.calls.exists())
+
+    def test_unrepresentable_jar_path_stops_before_compiling(self):
+        self.environment["MOCK_JARS"] = "D:/SDK;extra/Generic.jar"
+        result = self.run_workers()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertFalse(self.calls.exists())
 
 
 if __name__ == "__main__":
