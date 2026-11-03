@@ -142,6 +142,14 @@ location of your Java installation."
     fi
 fi
 
+# Source-file launch needs the compiler module before the SDK checks can run.
+if [ -n "$JAVA_HOME" ] ; then
+    [ -x "$JAVA_HOME/bin/javac" ] || [ -x "$JAVA_HOME/bin/javac.exe" ] ||
+        die "ERROR: JAVA_HOME must point to a full JDK, not just a Java runtime."
+elif ! command -v javac >/dev/null 2>&1 ; then
+    die "ERROR: A full JDK is required. Set JAVA_HOME to its installation directory."
+fi
+
 # Increase the maximum file descriptors if we can.
 if ! "$cygwin" && ! "$darwin" && ! "$nonstop" ; then
     case $MAX_FD in #(
@@ -176,6 +184,11 @@ if "$cygwin" || "$msys" ; then
 
     JAVACMD=$( cygpath --unix "$JAVACMD" )
 
+    if [ -n "${GHIDRA_INSTALL_DIR:-}" ] ; then
+        GHIDRA_INSTALL_DIR=$( cygpath --mixed "$GHIDRA_INSTALL_DIR" ) || exit
+        export GHIDRA_INSTALL_DIR
+    fi
+
     # Now convert the arguments - kludge to limit ourselves to /bin/sh
     for arg do
         if
@@ -202,7 +215,7 @@ fi
 
 
 # Add default JVM options here. You can also use JAVA_OPTS and GRADLE_OPTS to pass JVM options to this script.
-DEFAULT_JVM_OPTS='"-Xmx64m" "-Xms64m"'
+DEFAULT_JVM_OPTS='"-Xmx128m" "-Xms64m"'
 
 # Collect all arguments for the java command:
 #   * DEFAULT_JVM_OPTS, JAVA_OPTS, and optsEnvironmentVar are not allowed to contain shell fragments,
@@ -213,7 +226,7 @@ DEFAULT_JVM_OPTS='"-Xmx64m" "-Xms64m"'
 set -- \
         "-Dorg.gradle.appname=$APP_BASE_NAME" \
         -classpath "$CLASSPATH" \
-        -jar "$APP_HOME/gradle/wrapper/gradle-wrapper.jar" \
+        "$APP_HOME/tools/GhidraGradle.java" "$APP_HOME" \
         "$@"
 
 # Stop when "xargs" is not available.

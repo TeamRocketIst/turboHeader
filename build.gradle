@@ -6,10 +6,19 @@ if (!ghidraInstallDir) {
 apply from: new File(ghidraInstallDir, "support/buildExtension.gradle").getCanonicalPath()
 
 def extensionName = project.name
+def application = new Properties()
+file("${ghidraInstallDir}/Ghidra/application.properties").withInputStream {
+    application.load(it)
+}
+def compilerVersion = application.getProperty("application.java.compiler")
+if (compilerVersion == null || !(compilerVersion ==~ /[1-9][0-9]?/)) {
+    throw new GradleException("Ghidra has no valid Java compiler requirement")
+}
+def targetJava = Integer.parseInt(compilerVersion)
 
 java {
     toolchain {
-        languageVersion = JavaLanguageVersion.of(21)
+        languageVersion = JavaLanguageVersion.of(targetJava)
     }
 }
 
@@ -122,7 +131,7 @@ else {
 }
 
 compileJava {
-    options.release = 21
+    options.release = targetJava
     options.encoding = "UTF-8"
 }
 
@@ -133,7 +142,7 @@ def compileGhidraScripts = tasks.register("compileGhidraScripts", JavaCompile) {
     }
     classpath = sourceSets.main.runtimeClasspath
     destinationDirectory = layout.buildDirectory.dir("script-classes")
-    options.release = 21
+    options.release = targetJava
     options.encoding = "UTF-8"
 }
 

@@ -36,7 +36,7 @@ set APP_HOME=%DIRNAME%
 for %%i in ("%APP_HOME%") do set APP_HOME=%%~fi
 
 @rem Add default JVM options here. You can also use JAVA_OPTS and GRADLE_OPTS to pass JVM options to this script.
-set DEFAULT_JVM_OPTS="-Xmx64m" "-Xms64m"
+set DEFAULT_JVM_OPTS="-Xmx128m" "-Xms64m"
 
 @rem Find java.exe
 if defined JAVA_HOME goto findJavaFromJavaHome
@@ -70,11 +70,23 @@ goto fail
 :execute
 @rem Setup the command line
 
+if defined JAVA_HOME if not exist "%JAVA_HOME%/bin/javac.exe" (
+    echo ERROR: JAVA_HOME must point to a full JDK, not just a Java runtime. 1>&2
+    goto fail
+)
+if not defined JAVA_HOME (
+    where javac >NUL 2>&1
+    if errorlevel 1 (
+        echo ERROR: A full JDK is required. Set JAVA_HOME to its installation directory. 1>&2
+        goto fail
+    )
+)
+
 set CLASSPATH=
 
 
 @rem Execute Gradle
-"%JAVA_EXE%" %DEFAULT_JVM_OPTS% %JAVA_OPTS% %GRADLE_OPTS% "-Dorg.gradle.appname=%APP_BASE_NAME%" -classpath "%CLASSPATH%" -jar "%APP_HOME%\gradle\wrapper\gradle-wrapper.jar" %*
+"%JAVA_EXE%" %DEFAULT_JVM_OPTS% %JAVA_OPTS% %GRADLE_OPTS% "-Dorg.gradle.appname=%APP_BASE_NAME%" -classpath "%CLASSPATH%" "%APP_HOME%\tools\GhidraGradle.java" "%APP_HOME%" %*
 
 :end
 @rem End local scope for the variables with windows NT shell
