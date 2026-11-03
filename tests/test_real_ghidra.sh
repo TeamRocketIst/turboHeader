@@ -98,6 +98,7 @@ JAVA_TOOL_OPTIONS="${JAVA_TOOL_OPTIONS:+$JAVA_TOOL_OPTIONS }-Dapplication.settin
   "$JAVA_ROOT/tests/fixtures/class_metadata.h" "$JAVA_ROOT/tests/fixtures/class_metadata_offsets.json" - \
   require-external-offsets \
   -postScript VerifyTurboHeaderClassMetadata.java \
+  -postScript VerifyTurboHeaderElfStrings.java \
   -postScript VerifyGhidraFullHeaderStaticFields.java \
   -postScript VerifyTurboHeaderCallingConvention.java \
   -postScript VerifyTurboHeaderFunctionMatcher.java \
@@ -149,6 +150,7 @@ grep -q 'TurboHeader real-Ghidra fixture verification passed' "$LOG"
 grep -q 'TurboHeader real-Ghidra transaction tests passed' "$LOG"
 grep -q 'TurboHeader real-Ghidra provenance verification passed' "$LOG"
 grep -q 'TurboHeader class metadata verification passed' "$LOG"
+grep -q 'TurboHeader ELF string candidate verification passed' "$LOG"
 grep -q 'Ghidra full-header static-field verification passed' "$LOG"
 grep -q 'TurboHeader calling-convention verification passed' "$LOG"
 grep -q 'TurboHeader real-Ghidra function matcher verification passed' "$LOG"

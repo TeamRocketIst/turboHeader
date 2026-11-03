@@ -8,6 +8,7 @@ import java.util.Map;
 
 import ghidra.app.cmd.data.CreateDataCmd;
 import ghidra.program.model.address.Address;
+import ghidra.program.model.address.AddressSet;
 import ghidra.program.model.data.DataType;
 import ghidra.program.model.data.DataUtilities.ClearDataMode;
 import ghidra.program.model.data.Pointer;
@@ -33,6 +34,8 @@ public final class GhidraStringImporter {
     private int commentsCreated;
     private int typed;
     private int primaryLabelsChanged;
+    private int skipped;
+    private AddressSet elfTables;
 
     public GhidraStringImporter(Program program, TaskMonitor monitor) {
         this.program = program;
@@ -43,6 +46,7 @@ public final class GhidraStringImporter {
     public ImportResult importStrings(List<ScriptMethodReader.ScriptString> entries)
             throws Exception {
         long started = System.nanoTime();
+        elfTables = entries.isEmpty() ? new AddressSet() : ElfMetadataTables.read(program, monitor);
         DataType stringPointer = typeResolver.resolveType(STRING_POINTER_TYPE, false);
         Map<Address, GhidraRelocationImporter.Target> relocationTargets = new HashMap<>();
         int transaction = program.startTransaction("TurboHeader IL2CPP strings");
@@ -67,7 +71,7 @@ public final class GhidraStringImporter {
         }
         int failed = failureCounts.values().stream().mapToInt(Integer::intValue).sum();
         var stats = new ImportStats(entries.size(), labelsCreated, labelsReused,
-                commentsCreated, typed, primaryLabelsChanged, failed,
+                commentsCreated, typed, primaryLabelsChanged, skipped, failed,
                 Map.copyOf(failureCounts), List.copyOf(failureSamples),
                 System.nanoTime() - started);
         return new ImportResult(stats, Map.copyOf(relocationTargets));
@@ -76,9 +80,14 @@ public final class GhidraStringImporter {
     private Address importEntry(ScriptMethodReader.ScriptString entry, DataType stringPointer) {
         Address address;
         try {
-            address = program.getImageBase().add(entry.address());
+            address = program.getImageBase().addNoWrap(entry.address());
+            var end = address.addNoWrap(program.getDefaultPointerSize() - 1L);
+            if (elfTables.intersects(address, end)) {
+                skipped++;
+                return null;
+            }
         }
-        catch (RuntimeException e) {
+        catch (ghidra.program.model.address.AddressOverflowException | RuntimeException e) {
             fail("invalid address", entry, e.getMessage());
             return null;
         }
@@ -166,7 +175,7 @@ public final class GhidraStringImporter {
     }
 
     public record ImportStats(int total, int labelsCreated, int labelsReused,
-            int commentsCreated, int typed, int primaryLabelsChanged, int failed,
+            int commentsCreated, int typed, int primaryLabelsChanged, int skipped, int failed,
             Map<String, Integer> failureCounts, List<String> failureSamples, long elapsedNanos) {
         public double elapsedSeconds() {
             return elapsedNanos / 1_000_000_000.0;

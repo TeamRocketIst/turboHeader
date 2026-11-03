@@ -79,6 +79,11 @@ public final class Il2CppMetadataImportService {
                 stringStats.elapsedSeconds()));
         reportFailures("TurboHeader strings", "TurboHeader string sample",
                 stringStats.failureCounts(), stringStats.failureSamples());
+        if (stringStats.skipped() != 0) {
+            errors.accept(String.format(
+                    "WARNING: TurboHeader skipped string candidates overlapping ELF bookkeeping tables: %,d. Existing data was left unchanged.",
+                    stringStats.skipped()));
+        }
 
         var metadataResult = new GhidraMetadataImporter(program, monitor)
                 .importMetadata(scriptData.metadata());
