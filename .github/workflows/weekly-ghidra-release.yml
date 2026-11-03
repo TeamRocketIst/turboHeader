@@ -294,6 +294,17 @@ jobs:
             done
           fi
           echo "GHIDRA_INSTALL_DIR=$(cd "$ghidra_dir" && pwd)" >>"$GITHUB_ENV"
+      - name: Read Ghidra Java requirement
+        id: ghidra-java
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(./gradlew --ghidra-java-version)"
+          echo "version=$version" >>"$GITHUB_OUTPUT"
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: ${{ steps.ghidra-java.outputs.version }}
       - name: Prepare Ghidra native decompiler
         if: runner.os != 'Windows'
         env:
@@ -306,10 +317,7 @@ jobs:
             echo "Using prebuilt Ghidra tools for $GHIDRA_PLATFORM."
             exit 0
           fi
-          (
-            cd "$GHIDRA_INSTALL_DIR/support/gradle"
-            ./gradlew --no-daemon :Decompiler:buildNatives
-          )
+          ./gradlew --ghidra-native --no-daemon :Decompiler:buildNatives
           built="$GHIDRA_INSTALL_DIR/Ghidra/Features/Decompiler/build/os/$GHIDRA_PLATFORM"
           for tool in decompile sleigh; do
             [[ -x "$built/$tool" ]] || {
@@ -359,6 +367,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          python3 tests/test_gradle_launcher.py
           rm -rf dist
           TURBOHEADER_PREBUILT_OS="$PWD/extension-os" \
             ./gradlew --no-daemon clean buildExtension
@@ -443,6 +452,16 @@ jobs:
           [[ -f "$ghidra_dir/support/buildExtension.gradle" ]]
           chmod +x "$ghidra_dir/support/analyzeHeadless" "$ghidra_dir/support/launch.sh"
           echo "GHIDRA_INSTALL_DIR=$(cd "$ghidra_dir" && pwd)" >>"$GITHUB_ENV"
+      - name: Read Ghidra Java requirement
+        id: ghidra-java
+        run: |
+          set -euo pipefail
+          version="$(./gradlew --ghidra-java-version)"
+          echo "version=$version" >>"$GITHUB_OUTPUT"
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: ${{ steps.ghidra-java.outputs.version }}
       - name: Prepare Ghidra native decompiler
         env:
           GHIDRA_PLATFORM: ${{ matrix.target.ghidra_platform }}
@@ -453,10 +472,7 @@ jobs:
             echo "Using prebuilt Ghidra tools for $GHIDRA_PLATFORM."
             exit 0
           fi
-          (
-            cd "$GHIDRA_INSTALL_DIR/support/gradle"
-            ./gradlew --no-daemon :Decompiler:buildNatives
-          )
+          ./gradlew --ghidra-native --no-daemon :Decompiler:buildNatives
           built="$GHIDRA_INSTALL_DIR/Ghidra/Features/Decompiler/build/os/$GHIDRA_PLATFORM"
           for tool in decompile sleigh; do
             [[ -x "$built/$tool" ]] || {
@@ -497,6 +513,7 @@ jobs:
           GHIDRA_VERSION: ${{ matrix.ghidra.version }}
         run: |
           set -euo pipefail
+          python3 tests/test_gradle_launcher.py
           rm -rf dist
           TURBOHEADER_PREBUILT_OS="$PWD/extension-os" \
             ./gradlew --no-daemon clean buildExtension

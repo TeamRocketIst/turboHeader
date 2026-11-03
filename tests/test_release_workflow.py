@@ -65,7 +65,10 @@ def check_workflow() -> None:
         "cmake -S native -B build/native -G Ninja",
         "Prepare Ghidra native decompiler",
         "if: runner.os != 'Windows'",
-        "./gradlew --no-daemon :Decompiler:buildNatives",
+        "./gradlew --ghidra-native --no-daemon :Decompiler:buildNatives",
+        "Read Ghidra Java requirement",
+        "python3 tests/test_gradle_launcher.py",
+        "java-version: ${{ steps.ghidra-java.outputs.version }}",
         "Ghidra/Features/Decompiler/build/os/$GHIDRA_PLATFORM",
         "Ghidra tool was not built",
         "--glibc-max 2.35",
@@ -118,7 +121,7 @@ def check_workflow() -> None:
         raise AssertionError("every platform build must isolate its headless test files")
     if text.count('chmod +x "$ghidra_dir/support/analyzeHeadless" "$ghidra_dir/support/launch.sh"') != 2:
         raise AssertionError("every Ghidra extraction must restore launcher permissions")
-    if text.count("./gradlew --no-daemon :Decompiler:buildNatives") != 2:
+    if text.count("./gradlew --ghidra-native --no-daemon :Decompiler:buildNatives") != 2:
         raise AssertionError("every Unix build job must provide the Ghidra decompiler fallback")
     if text.count("Using prebuilt Ghidra tools for $GHIDRA_PLATFORM.") != 2:
         raise AssertionError("every Unix build job must prefer Ghidra's prebuilt tools")

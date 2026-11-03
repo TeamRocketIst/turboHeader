@@ -8,7 +8,7 @@ After installing TurboHeader, use the
 ## Requirements
 
 - Ghidra 12+
-- Java 21
+- A full JDK matching Ghidra's requirements: Java 21 for 12.1.x, Java 25 for 12.2
 - CMake 3.20+
 - A C11 compiler
 
@@ -58,6 +58,9 @@ unzip dist/ghidra_12.1.2_PUBLIC_20260815_turboheader-ghidra-il2cpp.zip \
 ```
 
 Use the archive name produced by your build.
+
+`./gradlew` (or `gradlew.bat` on Windows) selects Gradle from the SDK at `GHIDRA_INSTALL_DIR` and verifies
+its download checksum. Set `JAVA_HOME` to the required JDK; the launcher does not install Java.
 
 Restart Ghidra after installing or replacing the extension.
 

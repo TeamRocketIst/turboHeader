@@ -88,7 +88,8 @@ class WorkflowTests(unittest.TestCase):
                          ":Decompiler:buildNatives", "TURBOHEADER_WARNINGS_AS_ERRORS=ON"):
             self.assertIn(required, self.action)
         self.assertIn('[[ "${#archives[@]}" -eq 1', self.action)
-        self.assertEqual(self.action.count("set -euo pipefail"), 4)
+        self.assertEqual(self.action.count("set -euo pipefail"), 5)
+        self.assertIn("java-version: ${{ steps.ghidra-java.outputs.version }}", self.action)
         self.assertNotIn("./tests/run_all.sh", self.action)
         self.assertNotIn("tests/test_release_workflow.py", self.action)
         self.assertIn('cygpath -m "$download_dir"', self.action)
@@ -314,6 +315,7 @@ class PackageStepTests(unittest.TestCase):
         for name in ("build/compatibility", "dist", "tools", "tests"):
             (self.root / name).mkdir(parents=True)
         shutil.copyfile(ROOT / "tools/verify_extension.py", self.root / "tools/verify_extension.py")
+        (self.root / "tests/test_gradle_launcher.py").write_text("# launcher fixture\n")
         helpers = runpy.run_path(str(ROOT / "tests/test_packaging.py"))
         helpers["write_extension"](self.root / "dist/fixture.zip")
         self.script = run_script(ACTION.read_text(encoding="utf-8"), "Package and test extension")
@@ -342,6 +344,17 @@ class PackageStepTests(unittest.TestCase):
         self.assertEqual(result.returncode, 31)
         self.assertTrue((self.root / "build/compatibility/tested-extension.zip").is_file())
         self.assertIn("headless fixture", (self.root / "build/compatibility/headless.log").read_text())
+
+    def test_java_requirement_failure_does_not_publish_output(self):
+        self.execute(23, 0)
+        output = self.root / "java-output"
+        output.write_text("unchanged\n")
+        script = run_script(ACTION.read_text(encoding="utf-8"), "Read Ghidra Java requirement")
+        result = subprocess.run(["bash", "-c", script], cwd=self.root,
+                                env=dict(os.environ, GITHUB_OUTPUT=str(output)),
+                                text=True, capture_output=True, timeout=10)
+        self.assertEqual(result.returncode, 23)
+        self.assertEqual(output.read_text(), "unchanged\n")
 
 
 @unittest.skipUnless(shutil.which("bash"), "bash is required")

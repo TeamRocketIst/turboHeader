@@ -96,6 +96,17 @@ runs:
           ghidra_dir="$(cygpath -m "$ghidra_dir")"
         fi
         echo "GHIDRA_INSTALL_DIR=$ghidra_dir" >>"$GITHUB_ENV"
+    - name: Read Ghidra Java requirement
+      id: ghidra-java
+      shell: bash
+      run: |
+        set -euo pipefail
+        version="$(./gradlew --ghidra-java-version)"
+        echo "version=$version" >>"$GITHUB_OUTPUT"
+    - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+      with:
+        distribution: temurin
+        java-version: ${{ steps.ghidra-java.outputs.version }}
     - name: Prepare Ghidra decompiler
       shell: bash
       env:
@@ -106,10 +117,8 @@ runs:
         if [[ "$RUNNER_OS" == Windows ]]; then
           [[ -f "$tools/decompile.exe" && -f "$tools/sleigh.exe" ]]
         elif [[ ! -x "$tools/decompile" || ! -x "$tools/sleigh" ]]; then
-          (
-            cd "$GHIDRA_INSTALL_DIR/support/gradle"
-            ./gradlew --no-daemon :Decompiler:buildNatives
-          ) 2>&1 | tee build/compatibility/ghidra-native.log
+          ./gradlew --ghidra-native --no-daemon :Decompiler:buildNatives \
+            2>&1 | tee build/compatibility/ghidra-native.log
           built="$GHIDRA_INSTALL_DIR/Ghidra/Features/Decompiler/build/os/$GHIDRA_PLATFORM"
           [[ -x "$built/decompile" && -x "$built/sleigh" ]]
         fi
@@ -143,6 +152,7 @@ runs:
       shell: bash
       run: |
         set -euo pipefail
+        python3 tests/test_gradle_launcher.py
         TURBOHEADER_PREBUILT_OS="$PWD/extension-os" ./gradlew --no-daemon buildExtension \
           2>&1 | tee build/compatibility/extension-build.log
         archives=(dist/*.zip)
