@@ -59,7 +59,7 @@ class LauncherTests(unittest.TestCase):
 
     def launch(self, *args, environment=None):
         if os.name == "nt":
-            command = ["cmd.exe", "/d", "/c", str(self.project / "gradlew.bat")]
+            command = ["cmd.exe", "/d", "/c", "gradlew.bat"]
         else:
             command = ["sh", str(self.project / "gradlew")]
         result = subprocess.run(command + list(args), cwd=self.project,
@@ -69,6 +69,13 @@ class LauncherTests(unittest.TestCase):
         self.assertEqual(self.wrapper.read_text(),
                          "distributionUrl=https://services.gradle.org/distributions/gradle-9.8.0-bin.zip\n")
         return result
+
+    def assert_directory(self, output, expected):
+        directories = [line[len("directory="):] for line in output.splitlines()
+                       if line.startswith("directory=")]
+        self.assertEqual(len(directories), 1, output)
+        actual = Path(directories[0])
+        self.assertTrue(actual.samefile(expected), f"{actual} is not the expected directory {expected}")
 
     def test_policy_units(self):
         subprocess.run([str(JAVA), "-cp", str(self.classes), "GhidraGradleTest"], check=True)
@@ -80,13 +87,35 @@ class LauncherTests(unittest.TestCase):
         for arg in arguments:
             self.assertIn("argument=" + base64.b64encode(arg.encode()).decode(), result.stdout)
         self.assertIn("checksum=" + CHECKSUM, result.stdout)
-        self.assertIn("directory=" + str(self.project), result.stdout)
+        self.assert_directory(result.stdout, self.project)
         self.assertFalse((self.project / "injected").exists())
 
     def test_native_project_directory(self):
         result = self.launch("--ghidra-native", ":Decompiler:buildNatives")
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("directory=" + str(self.sdk / "support/gradle"), result.stdout)
+        self.assert_directory(result.stdout, self.sdk / "support/gradle")
+
+    def test_project_directory_alias(self):
+        alias = self.root / "project alias"
+        try:
+            alias.symlink_to(self.project, target_is_directory=True)
+        except OSError as error:
+            if os.name == "nt" and getattr(error, "winerror", None) == 1314:
+                self.skipTest("Creating symlinks requires Windows Developer Mode or privileges")
+            raise
+        self.project = alias
+        result = self.launch("buildExtension")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assert_directory(result.stdout, alias)
+
+    def test_different_directory_rejected(self):
+        with self.assertRaises(AssertionError):
+            self.assert_directory("directory=" + str(self.project), self.sdk)
+
+    def test_missing_or_duplicate_directory_rejected(self):
+        for output in ("", "directory=" + str(self.project) + "\ndirectory=" + str(self.sdk)):
+            with self.subTest(output=output), self.assertRaises(AssertionError):
+                self.assert_directory(output, self.project)
 
     def test_child_exit_code(self):
         result = self.launch("--fixture-fail")
