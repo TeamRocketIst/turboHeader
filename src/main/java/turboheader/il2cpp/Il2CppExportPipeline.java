@@ -240,6 +240,19 @@ public final class Il2CppExportPipeline {
                 retries, recovered, seconds(elapsedNanos));
     }
 
+    public static void reportOutcome(int failed, int ambiguous, Consumer<String> output) {
+        if (failed != 0) {
+            throw new IllegalStateException(String.format(Locale.ROOT,
+                    "Export lost %d function bodies and skipped %d ambiguous functions; " +
+                    "see the output reports.", failed, ambiguous));
+        }
+        if (ambiguous != 0) {
+            output.accept(String.format(Locale.ROOT,
+                    "WARNING: TurboHeader skipped ambiguous methods: %d; " +
+                    "see _ambiguous_matches.txt.", ambiguous));
+        }
+    }
+
     private static void stage(TaskMonitor monitor, Consumer<String> progress, String message) {
         monitor.setMessage(message);
         progress.accept(message);

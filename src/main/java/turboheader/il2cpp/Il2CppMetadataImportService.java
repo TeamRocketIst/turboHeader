@@ -80,8 +80,8 @@ public final class Il2CppMetadataImportService {
         reportFailures("TurboHeader strings", "TurboHeader string sample",
                 stringStats.failureCounts(), stringStats.failureSamples());
         if (stringStats.skipped() != 0) {
-            errors.accept(String.format(
-                    "WARNING: TurboHeader skipped string candidates overlapping ELF bookkeeping tables: %,d. Existing data was left unchanged.",
+            output.accept(String.format(
+                    "WARNING: TurboHeader skipped string entries in ELF loader tables: %,d.",
                     stringStats.skipped()));
         }
 
@@ -95,6 +95,11 @@ public final class Il2CppMetadataImportService {
                 metadataStats.failed(), metadataStats.elapsedSeconds()));
         reportFailures("TurboHeader metadata", "TurboHeader metadata sample",
                 metadataStats.failureCounts(), metadataStats.failureSamples());
+        if (metadataStats.skipped() != 0) {
+            output.accept(String.format(
+                    "WARNING: TurboHeader skipped metadata entries in ELF loader tables: %,d.",
+                    metadataStats.skipped()));
+        }
 
         var methodMetadataResult = new GhidraMethodMetadataImporter(program, monitor)
                 .importMethods(scriptData.metadataMethods());

@@ -25,10 +25,6 @@ public class ExportIl2Cpp extends GhidraScript {
                 currentProgram, request, monitor, this::println);
         int failed = result.decompilation().failedFunctions();
         int ambiguous = result.plan().ambiguities().size();
-        if (failed != 0 || ambiguous != 0) {
-            throw new IllegalStateException(String.format(
-                    "Export lost %d function bodies and skipped %d ambiguous functions; " +
-                    "see the output reports.", failed, ambiguous));
-        }
+        Il2CppExportPipeline.reportOutcome(failed, ambiguous, this::println);
     }
 }

@@ -16,9 +16,11 @@ import ghidra.program.model.data.QWordDataType;
 import ghidra.program.model.listing.CommentType;
 import ghidra.program.model.symbol.SourceType;
 import turboheader.il2cpp.Il2CppMetadataImportService;
+import turboheader.il2cpp.metadata.GhidraMetadataImporter;
 import turboheader.il2cpp.metadata.GhidraStringImporter;
 import turboheader.il2cpp.metadata.Il2CppStringLabels;
 import turboheader.il2cpp.metadata.ScriptMethodReader.ScriptString;
+import turboheader.il2cpp.metadata.ScriptMethodReader.ScriptMetadata;
 
 public class VerifyTurboHeaderElfStrings extends GhidraScript {
     private int fixtureIndex;
@@ -35,6 +37,7 @@ public class VerifyTurboHeaderElfStrings extends GhidraScript {
         verifyOrdinaryDataConflict();
         verifyMalformedTable();
         println("TurboHeader ELF string candidate verification passed");
+        println("TurboHeader ELF metadata candidate verification passed");
     }
 
     private void verifyTable(int type, boolean is64, ByteOrder order) throws Exception {
@@ -56,6 +59,18 @@ public class VerifyTurboHeaderElfStrings extends GhidraScript {
         require(result.relocationTargets().size() == 1 &&
                 result.relocationTargets().containsKey(table.add(64)),
                 "skipped table entered relocation propagation");
+        var metadataResult = new GhidraMetadataImporter(currentProgram, monitor).importMetadata(List.of(
+                metadata(table, "Fixture_Skipped_Type"), metadata(table.add(24), "Fixture_Middle"),
+                metadata(table.subtract(4), "Fixture_Start_Overlap"),
+                metadata(table.add(60), "Fixture_End_Overlap"),
+                metadata(table.add(72), "Fixture_Valid_Type")));
+        var metadataStats = metadataResult.stats();
+        require(metadataStats.total() == 5 && metadataStats.skipped() == 4 &&
+                metadataStats.failed() == 0 && metadataStats.typed() == 1 &&
+                metadataStats.labelsCreated() == 1, "ELF metadata candidates were not skipped");
+        require(metadataResult.relocationTargets().size() == 1 &&
+                metadataResult.relocationTargets().containsKey(table.add(72)),
+                "skipped metadata entered relocation propagation");
         require(java.util.Arrays.equals(before, getBytes(start, 0x60)), "ELF bytes changed");
         require(currentProgram.getListing().getDefinedDataAt(table).getDataType()
                 .isEquivalent(data.getDataType()), "ELF array changed");
@@ -68,16 +83,26 @@ public class VerifyTurboHeaderElfStrings extends GhidraScript {
                 "skipped ELF candidate acquired a string label");
         require(currentProgram.getListing().getComment(CommentType.EOL, table.add(24)) == null,
                 "skipped ELF candidate acquired a comment");
+        require(currentProgram.getSymbolTable().getGlobalSymbol("Fixture_Skipped_Type", table) == null,
+                "skipped ELF candidate acquired a metadata label");
 
         var script = Files.createTempFile("elf-string-candidates", ".json");
         try {
             Files.writeString(script, "{\"ScriptMethod\":[],\"ScriptString\":[{\"Address\":" +
-                    table.subtract(currentProgram.getImageBase()) + ",\"Value\":\"sample\"}]}");
+                    table.subtract(currentProgram.getImageBase()) + ",\"Value\":\"sample\"}]," +
+                    "\"ScriptMetadata\":[{\"Address\":" + table.subtract(currentProgram.getImageBase()) +
+                    ",\"Name\":\"Fixture_Skipped_Type\",\"Signature\":\"void*\"}]}");
             var warnings = new ArrayList<String>();
-            new Il2CppMetadataImportService(currentProgram, monitor, unused -> { }, warnings::add)
+            var errors = new ArrayList<String>();
+            new Il2CppMetadataImportService(currentProgram, monitor, warnings::add, errors::add)
                     .importScript(script);
-            require(warnings.stream().anyMatch(line -> line.contains("ELF bookkeeping tables: 1.")),
-                    "skipped candidate did not produce a warning");
+            require(errors.isEmpty(), "skipped candidates were reported as errors");
+            require(warnings.stream().anyMatch(line -> line.equals(
+                    "WARNING: TurboHeader skipped string entries in ELF loader tables: 1.")),
+                    "skipped string did not produce a warning");
+            require(warnings.stream().anyMatch(line -> line.equals(
+                    "WARNING: TurboHeader skipped metadata entries in ELF loader tables: 1.")),
+                    "skipped metadata did not produce a warning");
         }
         finally {
             Files.deleteIfExists(script);
@@ -94,6 +119,12 @@ public class VerifyTurboHeaderElfStrings extends GhidraScript {
                 "ordinary data conflict was hidden by the block name");
         require(currentProgram.getListing().getDefinedDataAt(slot).getDataType()
                 .isEquivalent(data.getDataType()), "conflicting data was overwritten");
+        var metadataStats = new GhidraMetadataImporter(currentProgram, monitor)
+                .importMetadata(List.of(metadata(slot, "Fixture_Conflict_Type"))).stats();
+        require(metadataStats.skipped() == 0 && metadataStats.failed() == 1,
+                "ordinary metadata conflict was hidden by the block name");
+        require(currentProgram.getListing().getDefinedDataAt(slot).getDataType()
+                .isEquivalent(data.getDataType()), "conflicting metadata data was overwritten");
         var script = Files.createTempFile("elf-string-conflict", ".json");
         try {
             Files.writeString(script, "{\"ScriptMethod\":[],\"ScriptString\":[{\"Address\":" +
@@ -110,6 +141,24 @@ public class VerifyTurboHeaderElfStrings extends GhidraScript {
         }
         finally {
             Files.deleteIfExists(script);
+        }
+        var metadataScript = Files.createTempFile("elf-metadata-conflict", ".json");
+        try {
+            Files.writeString(metadataScript, "{\"ScriptMethod\":[],\"ScriptMetadata\":[{\"Address\":" +
+                    slot.subtract(currentProgram.getImageBase()) +
+                    ",\"Name\":\"Fixture_Conflict_Type\",\"Signature\":\"void*\"}]}");
+            try {
+                new Il2CppMetadataImportService(currentProgram, monitor, unused -> { }, unused -> { })
+                        .importScript(metadataScript);
+                throw new AssertionError("genuine metadata conflict no longer fails the import");
+            }
+            catch (IllegalStateException expected) {
+                require(expected.getMessage().contains("1 of 1 metadata slots"),
+                        "metadata import failed for an unexpected reason");
+            }
+        }
+        finally {
+            Files.deleteIfExists(metadataScript);
         }
     }
 
@@ -128,6 +177,17 @@ public class VerifyTurboHeaderElfStrings extends GhidraScript {
             require(currentProgram.getSymbolTable().getPrimarySymbol(slot) == null,
                     "invalid ELF input created a label");
         }
+        try {
+            new GhidraMetadataImporter(currentProgram, monitor)
+                    .importMetadata(List.of(metadata(slot, "Fixture_Invalid_Type")));
+            throw new AssertionError("invalid ELF metadata extent accepted");
+        }
+        catch (IOException expected) {
+            require(currentProgram.getListing().getDefinedDataAt(slot) == null,
+                    "invalid ELF metadata input modified data");
+            require(currentProgram.getSymbolTable().getPrimarySymbol(slot) == null,
+                    "invalid ELF metadata input created a label");
+        }
     }
 
     private Address map(byte[] bytes, String name) throws Exception {
@@ -142,6 +202,10 @@ public class VerifyTurboHeaderElfStrings extends GhidraScript {
 
     private ScriptString string(Address address, String value) {
         return new ScriptString(address.subtract(currentProgram.getImageBase()), value);
+    }
+
+    private ScriptMetadata metadata(Address address, String name) {
+        return new ScriptMetadata(address.subtract(currentProgram.getImageBase()), name, "void*");
     }
 
     private byte[] elf(int type, boolean is64, ByteOrder order) {

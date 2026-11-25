@@ -15,7 +15,7 @@ import ghidra.program.model.listing.Program;
 import ghidra.util.exception.CancelledException;
 import ghidra.util.task.TaskMonitor;
 
-/** Finds mapped ELF tables that cannot hold runtime string pointers. */
+/** Finds mapped ELF tables that cannot hold runtime metadata slots. */
 final class ElfMetadataTables {
     private static final int MAX_SECTIONS = 65536;
     private static final int MAX_FILES = 128;
@@ -29,7 +29,7 @@ final class ElfMetadataTables {
         var memory = program.getMemory();
         var files = memory.getAllFileBytes();
         if (files.size() > MAX_FILES) {
-            throw new IOException("too many source files to inspect ELF string slots");
+            throw new IOException("too many source files to inspect ELF metadata slots");
         }
         for (var file : files) {
             monitor.checkCancelled();
@@ -48,7 +48,7 @@ final class ElfMetadataTables {
                         entrySize != (header.is64Bit() ? 64 : 40) ||
                         offset < 0 || offset > provider.length() ||
                         (long) count * entrySize > provider.length() - offset) {
-                    throw new IOException("invalid ELF section table for string import");
+                    throw new IOException("invalid ELF section table for metadata import");
                 }
                 var reader = new BinaryReader(provider, header.isLittleEndian());
                 for (int index = 0; index < count; index++) {
@@ -88,7 +88,7 @@ final class ElfMetadataTables {
                 }
             }
             catch (ElfException e) {
-                throw new IOException("cannot inspect ELF tables for string import", e);
+                throw new IOException("cannot inspect ELF tables for metadata import", e);
             }
         }
         return tables;
